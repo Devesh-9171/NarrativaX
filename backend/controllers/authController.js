@@ -1,50 +1,77 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const asyncHandler = require('../utils/asyncHandler');
 const AppError = require('../utils/AppError');
 const config = require('../config');
 
-exports.validate = (method) => {
-  if (method === 'signup') {
-    return [
-      body('username').isLength({ min: 3 }).trim(),
-      body('email').isEmail().normalizeEmail(),
-      body('password').isLength({ min: 8 })
-    ];
-  }
-  return [body('email').isEmail().normalizeEmail(), body('password').notEmpty()];
-};
+function signToken(user) {
+  return jwt.sign({ id: user._id.toString(), role: user.role }, config.jwtSecret, { expiresIn: '7d' });
+}
+
+function sanitizeUser(user) {
+  return {
+    id: user._id,
+    name: user.name,
+    username: user.name,
+    email: user.email,
+    role: user.role,
+    createdAt: user.createdAt
+  };
+}
 
 exports.signup = asyncHandler(async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) throw new AppError('Invalid request payload', 400, errors.array());
+  const name = (req.body.name || req.body.username || '').trim();
+  const email = (req.body.email || '').trim().toLowerCase();
+  const password = req.body.password || '';
 
-  const { username, email, password } = req.body;
-  const existing = await User.findOne({ $or: [{ email }, { username }] }).lean();
-  if (existing) throw new AppError('User with this email or username already exists', 409);
+  if (!name || !email || !password) {
+    throw new AppError('name, email, and password are required', 400);
+  }
 
-  const hashed = await bcrypt.hash(password, 12);
-  const user = await User.create({ username, email, password: hashed });
+  if (password.length < 8) {
+    throw new AppError('Password must be at least 8 characters long', 400);
+  }
 
-  res.status(201).json({ id: user._id, username: user.username, email: user.email });
+  const existingUser = await User.findOne({ email }).lean();
+  if (existingUser) {
+    throw new AppError('User already exists with this email', 409);
+  }
+
+  const hashedPassword = await bcrypt.hash(password, 12);
+  const user = await User.create({ name, email, password: hashedPassword });
+  const token = signToken(user);
+
+  res.status(201).json({ success: true, token, user: sanitizeUser(user) });
 });
 
 exports.login = asyncHandler(async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) throw new AppError('Invalid request payload', 400, errors.array());
+  const email = (req.body.email || '').trim().toLowerCase();
+  const password = req.body.password || '';
 
-  const { email, password } = req.body;
-  const user = await User.findOne({ email });
-  if (!user) throw new AppError('Invalid credentials', 401);
+  if (!email || !password) {
+    throw new AppError('email and password are required', 400);
+  }
 
-  const match = await bcrypt.compare(password, user.password);
-  if (!match) throw new AppError('Invalid credentials', 401);
+  const user = await User.findOne({ email }).select('+password');
+  if (!user) {
+    throw new AppError('Invalid email or password', 401);
+  }
 
-  const token = jwt.sign({ id: user._id, role: user.role, username: user.username }, config.jwtSecret, {
-    expiresIn: '7d'
-  });
+  const isMatch = await bcrypt.compare(password, user.password);
+  if (!isMatch) {
+    throw new AppError('Invalid email or password', 401);
+  }
 
-  res.json({ token, user: { id: user._id, username: user.username, email: user.email, role: user.role } });
+  const token = signToken(user);
+  res.json({ success: true, token, user: sanitizeUser(user) });
+});
+
+exports.getProfile = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user.id).lean();
+  if (!user) {
+    throw new AppError('User not found', 404);
+  }
+
+  res.json({ success: true, user: sanitizeUser(user) });
 });

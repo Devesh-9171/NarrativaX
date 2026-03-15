@@ -1,3 +1,4 @@
+const slugify = require('slugify');
 const Book = require('../models/Book');
 const Chapter = require('../models/Chapter');
 const asyncHandler = require('../utils/asyncHandler');
@@ -9,27 +10,45 @@ function computeTrendingScore(book) {
   return book.viewsLast24h * 3 + book.viewsLast7d * 2 + book.totalViews;
 }
 
+exports.createBook = asyncHandler(async (req, res) => {
+  const { title, author, category, description, coverImage, featured } = req.body;
+
+  if (!title || !author || !category || !description || !coverImage) {
+    throw new AppError('title, author, category, description, and coverImage are required', 400);
+  }
+
+  const slug = slugify(title, { lower: true, strict: true });
+  const existingBook = await Book.findOne({ slug }).lean();
+  if (existingBook) {
+    throw new AppError('A book with this title already exists', 409);
+  }
+
+  const book = await Book.create({ title, author, category, description, coverImage, featured: Boolean(featured), slug });
+  cache.flushAll();
+
+  res.status(201).json({ success: true, book });
+});
+
 exports.getHomepage = asyncHandler(async (_req, res) => {
   const key = cacheKey(['homepage']);
   const cached = cache.get(key);
-  if (cached) return res.json(cached);
+  if (cached) return res.json({ success: true, ...cached });
 
-  const [featured, trending, latestChapters, popular, categories] = await Promise.all([
+  const [featured, trending, latestChapters, popular] = await Promise.all([
     Book.find({ featured: true }).sort({ updatedAt: -1 }).limit(6).lean(),
-    Book.find().sort({ trendingScore: -1 }).limit(8).lean(),
+    Book.find().sort({ trendingScore: -1, totalViews: -1 }).limit(8).lean(),
     Chapter.find()
       .sort({ updatedAt: -1 })
       .limit(10)
       .populate('bookId', 'title slug coverImage author')
       .select('title slug chapterNumber updatedAt bookId')
       .lean(),
-    Book.find().sort({ totalViews: -1 }).limit(8).lean(),
-    Book.aggregate([{ $group: { _id: '$category', count: { $sum: 1 } } }, { $sort: { count: -1 } }, { $limit: 10 }])
+    Book.find().sort({ totalViews: -1 }).limit(8).lean()
   ]);
 
-  const payload = { featured, trending, latestChapters, popular, categories };
+  const payload = { featured, trending, popular, latestChapters };
   cache.set(key, payload);
-  res.json(payload);
+  res.json({ success: true, ...payload });
 });
 
 exports.getBooks = asyncHandler(async (req, res) => {
@@ -60,7 +79,28 @@ exports.getBooks = asyncHandler(async (req, res) => {
     Book.countDocuments(query)
   ]);
 
-  res.json({ data: books, pagination: buildPaginationMeta({ total, page, limit }) });
+  res.json({ success: true, data: books, pagination: buildPaginationMeta({ total, page, limit }) });
+});
+
+exports.getBookById = asyncHandler(async (req, res) => {
+  const key = cacheKey(['book-id', req.params.id]);
+  const cached = cache.get(key);
+  if (cached) return res.json({ success: true, ...cached });
+
+  const matcher = /^[0-9a-fA-F]{24}$/.test(req.params.id)
+    ? { _id: req.params.id }
+    : { slug: req.params.id };
+  const book = await Book.findOne(matcher).lean();
+  if (!book) throw new AppError('Book not found', 404);
+
+  const chapters = await Chapter.find({ bookId: book._id })
+    .sort({ chapterNumber: 1 })
+    .select('title slug chapterNumber views updatedAt')
+    .lean();
+
+  const payload = { book, chapters };
+  cache.set(key, payload);
+  res.json({ success: true, ...payload });
 });
 
 exports.getBookBySlug = asyncHandler(async (req, res) => {
