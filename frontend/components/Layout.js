@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 
@@ -30,12 +29,11 @@ export default function Layout({ children }) {
   };
 
   return (
-    <div className="min-h-screen">
-      <header className="sticky top-0 z-40 border-b bg-white/90 backdrop-blur dark:bg-slate-900/90 dark:border-slate-800">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.1),_transparent_60%)]">
+      <header className="sticky top-0 z-40 border-b bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-900/90">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-4 py-3">
-          <Link href="/" className="flex items-center gap-2 font-bold text-xl text-brand-600">
-            <Image src="/images/logo.svg" alt="NarrativaX" width={40} height={40} />
-            NarrativaX
+          <Link href="/" className="group flex items-center gap-2 text-xl font-bold" aria-label="ReadNovaX home">
+            <span className="brand-logo-text">ReadNovaX</span>
           </Link>
 
           <button
@@ -73,7 +71,7 @@ export default function Layout({ children }) {
       </header>
       <main className="mx-auto max-w-7xl px-4 py-6">{children}</main>
       <footer className="border-t py-8 text-center text-sm text-slate-600 dark:border-slate-800 dark:text-slate-300">
-        © {new Date().getFullYear()} NarrativaX. Read smarter.
+        © {new Date().getFullYear()} ReadNovaX. Read brighter.
       </footer>
     </div>
   );

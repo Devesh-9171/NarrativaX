@@ -7,8 +7,8 @@ import { buildMeta } from '../../utils/seo';
 
 export default function CategoryPage({ slug, books, pagination, error }) {
   const meta = buildMeta({
-    title: `${slug} Books | NarrativaX`,
-    description: `Browse ${slug} novels and books on NarrativaX`,
+    title: `${slug} Books | ReadNovaX`,
+    description: `Browse ${slug} novels and books on ReadNovaX`,
     image: '/images/logo.svg',
     path: `/category/${slug}`
   });

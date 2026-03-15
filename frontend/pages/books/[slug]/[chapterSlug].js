@@ -39,7 +39,7 @@ export default function ChapterPage({ book, chapter, previousChapter, nextChapte
   };
 
   const meta = buildMeta({
-    title: `${book.title} - ${chapter.title} | NarrativaX`,
+    title: `${book.title} - ${chapter.title} | ReadNovaX`,
     description: chapter.content.slice(0, 150),
     image: book.coverImage,
     path: `/books/${book.slug}/${chapter.slug}`
