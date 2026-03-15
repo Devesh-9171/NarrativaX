@@ -5,6 +5,7 @@
 html,
 body {
   @apply bg-slate-50 text-slate-900;
+  font-family: Inter, Poppins, system-ui, -apple-system, sans-serif;
 }
 
 .dark body {
@@ -13,4 +14,71 @@ body {
 
 .reader-paragraph {
   @apply mb-5 leading-8;
+}
+
+.brand-logo-text {
+  font-family: Orbitron, Inter, Poppins, system-ui, sans-serif;
+  letter-spacing: 0.06em;
+  background-image: linear-gradient(90deg, #a855f7, #38bdf8, #67e8f9, #a855f7);
+  background-size: 220% 220%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 0 12px rgba(56, 189, 248, 0.35);
+  animation: brandGradient 7s ease infinite, logoFloatIn 1s ease-out both;
+  transition: filter 200ms ease, transform 200ms ease;
+}
+
+.group:hover .brand-logo-text {
+  filter: brightness(1.25) drop-shadow(0 0 10px rgba(168, 85, 247, 0.55));
+  transform: translateY(-1px);
+}
+
+.brand-hero {
+  background-image: linear-gradient(115deg, #7c3aed, #2563eb 45%, #22d3ee);
+  box-shadow: 0 18px 40px rgba(37, 99, 235, 0.22);
+}
+
+.hero-title {
+  text-shadow: 0 0 18px rgba(125, 211, 252, 0.45);
+}
+
+.hero-letter {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(12px);
+  animation: letterFadeIn 0.45s ease-out forwards;
+}
+
+@keyframes brandGradient {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes logoFloatIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes letterFadeIn {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-logo-text,
+  .hero-letter {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
 }

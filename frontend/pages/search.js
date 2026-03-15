@@ -11,8 +11,8 @@ export default function SearchPage({ query, books, error }) {
   const q = query || '';
 
   const meta = buildMeta({
-    title: q ? `Search results for "${q}" | NarrativaX` : 'Search books | NarrativaX',
-    description: q ? `Browse book search results for ${q} on NarrativaX.` : 'Search books, chapters, and authors on NarrativaX.',
+    title: q ? `Search results for "${q}" | ReadNovaX` : 'Search books | ReadNovaX',
+    description: q ? `Browse book search results for ${q} on ReadNovaX.` : 'Search books, chapters, and authors on ReadNovaX.',
     image: '/images/logo.svg',
     path: router.asPath || '/search'
   });

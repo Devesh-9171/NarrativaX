@@ -16,7 +16,7 @@ export default function BookPage({ book, chapters, error }) {
   }
 
   const meta = buildMeta({
-    title: `${book.title} by ${book.author} | NarrativaX`,
+    title: `${book.title} by ${book.author} | ReadNovaX`,
     description: book.description,
     image: book.coverImage,
     path: `/books/${book.slug}`
