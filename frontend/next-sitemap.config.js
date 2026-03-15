@@ -1,6 +1,6 @@
 const DEFAULT_SITE_URL = "https://read-nova-x-frontend.vercel.app";
 const siteUrl = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || DEFAULT_SITE_URL;
-const apiBaseUrl = (process.env.NEXT_PUBLIC_API_URL || "https://readnovax.onrender.com") + "/api";
+const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://readnovax.onrender.com/api';
 
 function getValidatedApiBaseUrl() {
   try {

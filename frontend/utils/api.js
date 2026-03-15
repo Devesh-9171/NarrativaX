@@ -1,15 +1,15 @@
 import axios from 'axios';
 
-const DEFAULT_API_URL = 'https://readnovax.onrender.com';
+const DEFAULT_API_BASE_URL = 'https://readnovax.onrender.com/api';
 
 function resolveApiBaseUrl() {
-  const candidate = (process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_URL).trim();
+  const candidate = (process.env.NEXT_PUBLIC_API_BASE_URL || DEFAULT_API_BASE_URL).trim();
 
   try {
     const parsed = new URL(candidate);
-    return `${parsed.origin}/api`;
+    return `${parsed.origin}${parsed.pathname.replace(/\/$/, '') || '/api'}`;
   } catch {
-    return `${DEFAULT_API_URL}/api`;
+    return DEFAULT_API_BASE_URL;
   }
 }
 
