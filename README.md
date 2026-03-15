@@ -7,21 +7,48 @@ NarrativaX is a production-ready online novel reading platform (Kindle/Webnovel-
 - `backend`: Express REST API + MongoDB models + auth + admin CRUD + trending/search.
 
 ## Quick Start
-1. Install dependencies:
+1. Clone the repository and move into the project folder (required before running npm commands):
+   ```bash
+   git clone <your-repo-url> NarrativaX
+   cd NarrativaX
+   ```
+2. Install dependencies:
    ```bash
    npm install
    ```
-2. Configure environment files:
+3. Configure environment files:
    - Copy `backend/.env.example` to `backend/.env`
    - Copy `frontend/.env.local.example` to `frontend/.env.local`
-3. Seed sample data:
+4. Seed sample data:
    ```bash
    npm run seed --workspace backend
    ```
-4. Run both apps:
+5. Run both apps:
    ```bash
    npm run dev
    ```
+
+## Troubleshooting
+### `npm ERR! enoent Could not read package.json`
+If you see an error like:
+
+```text
+npm ERR! enoent Could not read package.json: Error: ENOENT: no such file or directory
+```
+
+you are running `npm` outside this repository folder. Verify your location first:
+
+```bash
+pwd
+```
+
+Then move to the project root (the folder that contains `package.json`) and rerun:
+
+```bash
+cd NarrativaX
+npm install
+npm run dev
+```
 
 Frontend: `http://localhost:3000`  
 Backend: `http://localhost:5000`
