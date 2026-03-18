@@ -82,3 +82,15 @@ body {
     transform: none;
   }
 }
+
+
+input,
+textarea,
+select {
+  color-scheme: dark;
+}
+
+input::placeholder,
+textarea::placeholder {
+  @apply text-gray-400;
+}
