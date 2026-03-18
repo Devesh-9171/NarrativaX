@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 
+const INPUT_CLASS = 'bg-gray-900 text-white placeholder-gray-400 border border-gray-700';
+
 export default function Layout({ children }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
@@ -48,7 +50,7 @@ export default function Layout({ children }) {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded border px-3 py-1.5 text-sm md:w-64"
+              className={`w-full rounded px-3 py-1.5 text-sm md:w-64 ${INPUT_CLASS}`}
               placeholder="Search books..."
               aria-label="Search books"
             />

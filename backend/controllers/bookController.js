@@ -12,9 +12,10 @@ function computeTrendingScore(book) {
 
 exports.createBook = asyncHandler(async (req, res) => {
   const { title, author, category, description, coverImage, featured } = req.body;
+  const normalizedAuthor = String(author || 'ReadNovaX Editorial').trim();
 
-  if (!title || !author || !category || !description || !coverImage) {
-    throw new AppError('title, author, category, description, and coverImage are required', 400);
+  if (!title || !category || !description || !coverImage) {
+    throw new AppError('title, category, description, and coverImage are required', 400);
   }
 
   const slug = slugify(title, { lower: true, strict: true });
@@ -23,7 +24,15 @@ exports.createBook = asyncHandler(async (req, res) => {
     throw new AppError('A book with this title already exists', 409);
   }
 
-  const book = await Book.create({ title, author, category, description, coverImage, featured: Boolean(featured), slug });
+  const book = await Book.create({
+    title: String(title).trim(),
+    author: normalizedAuthor,
+    category: String(category).trim(),
+    description: String(description).trim(),
+    coverImage: String(coverImage).trim(),
+    featured: Boolean(featured),
+    slug
+  });
   cache.flushAll();
 
   res.status(201).json({ success: true, book });

@@ -1,8 +1,31 @@
+const slugify = require('slugify');
 const Book = require('../models/Book');
 const Chapter = require('../models/Chapter');
 const asyncHandler = require('../utils/asyncHandler');
 const AppError = require('../utils/AppError');
 const { cache, cacheKey } = require('../utils/cache');
+
+exports.createChapter = asyncHandler(async (req, res) => {
+  const { bookId, chapterNumber, title, content } = req.body;
+
+  if (!bookId || !chapterNumber || !title || !content) {
+    throw new AppError('bookId, chapterNumber, title, and content are required', 400);
+  }
+
+  const book = await Book.findById(bookId).select('_id');
+  if (!book) throw new AppError('Book not found', 404);
+
+  const chapter = await Chapter.create({
+    bookId: book._id,
+    chapterNumber: Number(chapterNumber),
+    title: String(title).trim(),
+    content: String(content).trim(),
+    slug: slugify(String(title).trim() || `chapter-${chapterNumber}`, { lower: true, strict: true })
+  });
+
+  cache.flushAll();
+  res.status(201).json({ success: true, chapter });
+});
 
 exports.getChapter = asyncHandler(async (req, res) => {
   const { slug, chapterSlug } = req.params;
