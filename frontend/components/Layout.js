@@ -72,8 +72,15 @@ export default function Layout({ children }) {
         </div>
       </header>
       <main className="mx-auto max-w-7xl px-4 py-6">{children}</main>
-      <footer className="border-t py-8 text-center text-sm text-slate-600 dark:border-slate-800 dark:text-slate-300">
-        © {new Date().getFullYear()} ReadNovaX. Read brighter.
+      <footer className="border-t py-8 text-sm text-slate-600 dark:border-slate-800 dark:text-slate-300">
+        <div className="mx-auto flex max-w-7xl flex-col items-center gap-3 px-4 text-center">
+          <nav className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 font-medium">
+            <Link href="/about" className="transition hover:text-brand-600 dark:hover:text-sky-300">About</Link>
+            <Link href="/contact" className="transition hover:text-brand-600 dark:hover:text-sky-300">Contact</Link>
+            <Link href="/terms" className="transition hover:text-brand-600 dark:hover:text-sky-300">Terms</Link>
+          </nav>
+          <p>© {new Date().getFullYear()} ReadNovaX. Read brighter.</p>
+        </div>
       </footer>
     </div>
   );
