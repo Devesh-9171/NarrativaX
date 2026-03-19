@@ -4,6 +4,14 @@ import { useRouter } from 'next/router';
 
 const INPUT_CLASS = 'border border-slate-300 bg-white text-slate-900 placeholder-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder-slate-500';
 const NAV_LINK_CLASS = 'transition hover:text-brand-600 dark:hover:text-sky-300';
+const FOOTER_LINKS = [
+  { href: '/about', label: 'About' },
+  { href: '/contact', label: 'Contact' },
+  { href: '/terms', label: 'Terms' },
+  { href: '/privacy-policy', label: 'Privacy Policy' },
+  { href: '/disclaimer', label: 'Disclaimer' },
+  { href: '/blog', label: 'Blog' }
+];
 
 export default function Layout({ children }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -120,14 +128,22 @@ export default function Layout({ children }) {
       </header>
       <main className="mx-auto max-w-7xl px-4 py-6">{children}</main>
       <footer className="border-t border-slate-200 py-8 text-sm text-slate-600 dark:border-slate-800 dark:text-slate-300">
-        <div className="mx-auto flex max-w-7xl flex-col items-center gap-3 px-4 text-center">
-          <nav className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 font-medium">
-            <Link href="/about" className="transition hover:text-brand-600 dark:hover:text-sky-300">About</Link>
-            <Link href="/contact" className="transition hover:text-brand-600 dark:hover:text-sky-300">Contact</Link>
-            <Link href="/terms" className="transition hover:text-brand-600 dark:hover:text-sky-300">Terms</Link>
-            <Link href="/blog" className="transition hover:text-brand-600 dark:hover:text-sky-300">Blog</Link>
-          </nav>
-          <p>© {new Date().getFullYear()} ReadNovaX. Read brighter.</p>
+        <div className="mx-auto grid max-w-7xl gap-6 px-4 sm:grid-cols-[1.2fr_minmax(0,1fr)] sm:items-start sm:text-left">
+          <div>
+            <p className="text-lg font-semibold text-slate-900 dark:text-white">ReadNovaX</p>
+            <p className="mt-2 max-w-md leading-6">A clean, mobile-friendly reading platform for novels, updates, and blog content that is ready for growth and AdSense-friendly navigation.</p>
+          </div>
+          <div>
+            <p className="font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Quick links</p>
+            <nav className="mt-3 grid grid-cols-2 gap-x-5 gap-y-2 font-medium sm:grid-cols-1 md:grid-cols-2">
+              {FOOTER_LINKS.map((item) => (
+                <Link key={item.href} href={item.href} className="transition hover:text-brand-600 dark:hover:text-sky-300">
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
+          </div>
+          <p className="sm:col-span-2 sm:text-center">© {new Date().getFullYear()} ReadNovaX. Read brighter.</p>
         </div>
       </footer>
     </div>

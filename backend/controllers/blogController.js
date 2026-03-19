@@ -4,6 +4,9 @@ const AppError = require('../utils/AppError');
 const { getPagination, buildPaginationMeta } = require('../utils/pagination');
 const { cache, cacheKey } = require('../utils/cache');
 
+const BLOG_LIST_SELECT = 'title slug description coverImage publishedAt createdAt updatedAt';
+const BLOG_SORT = { publishedAt: -1, createdAt: -1, _id: -1 };
+
 exports.getBlogPosts = asyncHandler(async (req, res) => {
   const { page, limit, skip } = getPagination(req.query, { defaultLimit: 12, maxLimit: 100 });
   const key = cacheKey(['blog-posts', page, limit]);
@@ -12,10 +15,10 @@ exports.getBlogPosts = asyncHandler(async (req, res) => {
 
   const [posts, total] = await Promise.all([
     BlogPost.find()
-      .sort({ publishedAt: -1, createdAt: -1 })
+      .sort(BLOG_SORT)
       .skip(skip)
       .limit(limit)
-      .select('title slug description coverImage publishedAt createdAt updatedAt')
+      .select(BLOG_LIST_SELECT)
       .lean(),
     BlogPost.countDocuments()
   ]);
@@ -23,6 +26,7 @@ exports.getBlogPosts = asyncHandler(async (req, res) => {
   const payload = {
     success: true,
     data: posts,
+    message: posts.length === 0 ? 'No blog posts yet' : undefined,
     pagination: buildPaginationMeta({ total, page, limit })
   };
 
@@ -31,18 +35,23 @@ exports.getBlogPosts = asyncHandler(async (req, res) => {
 });
 
 exports.getLatestBlogPosts = asyncHandler(async (req, res) => {
-  const limit = Math.min(Math.max(Number(req.query.limit) || 4, 1), 12);
+  const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 4, 1), 12);
   const key = cacheKey(['latest-blog-posts', limit]);
   const cached = cache.get(key);
   if (cached) return res.json(cached);
 
   const posts = await BlogPost.find()
-    .sort({ publishedAt: -1, createdAt: -1 })
+    .sort(BLOG_SORT)
     .limit(limit)
-    .select('title slug description coverImage publishedAt')
+    .select(BLOG_LIST_SELECT)
     .lean();
 
-  const payload = { success: true, data: posts };
+  const payload = {
+    success: true,
+    data: posts,
+    message: posts.length === 0 ? 'No blog posts yet' : undefined
+  };
+
   cache.set(key, payload);
   res.json(payload);
 });
