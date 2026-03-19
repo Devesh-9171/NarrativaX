@@ -1,6 +1,6 @@
-# NarrativaX
+# ReadNovaX
 
-NarrativaX is a production-ready online novel reading platform (Kindle/Webnovel-style) with SEO-first Next.js frontend and Express + MongoDB backend.
+ReadNovaX is a production-ready online novel reading platform with SEO-first Next.js frontend and Express + MongoDB backend.
 
 ## Architecture
 - `frontend`: Next.js + Tailwind CSS + SSR pages + reader UI + SEO + GA + AdSense placeholders.
