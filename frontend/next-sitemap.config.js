@@ -1,6 +1,20 @@
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL || 'https://readnovax.in').replace(/\/$/, '');
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://readnovax.onrender.com/api';
 
+const STATIC_PUBLIC_PATHS = ['/', '/about', '/contact', '/terms', '/privacy-policy', '/disclaimer', '/blog'];
+const STATIC_PUBLIC_PATH_SET = new Set(STATIC_PUBLIC_PATHS);
+const ENABLE_FUTURE_BOOK_SITEMAP = process.env.ENABLE_FUTURE_BOOK_SITEMAP === 'true';
+const DYNAMIC_ROUTE_BUILDERS = {
+  book: (slug) => `/book/${slug}`,
+  chapter: (slug) => `/chapter/${slug}`
+};
+
+function getPriority(path) {
+  if (path === '/') return 1.0;
+  if (path === '/blog') return 0.9;
+  return 0.7;
+}
+
 function getValidatedApiBaseUrl() {
   try {
     const parsed = new URL(apiBaseUrl);
@@ -22,11 +36,6 @@ async function requestJson(path) {
   return response.json();
 }
 
-async function fetchAllBlogPosts() {
-  const payload = await requestJson('/blog');
-  return payload.data || [];
-}
-
 async function fetchAllBooks() {
   const books = [];
   let page = 1;
@@ -43,6 +52,42 @@ async function fetchAllBooks() {
   return books;
 }
 
+async function fetchFutureBookPaths(config) {
+  try {
+    const books = await fetchAllBooks();
+    const paths = [];
+    const seenPaths = new Set();
+
+    for (const book of books) {
+      if (!book?.slug) continue;
+
+      const bookPath = DYNAMIC_ROUTE_BUILDERS.book(book.slug);
+      if (!seenPaths.has(bookPath)) {
+        seenPaths.add(bookPath);
+        paths.push(await config.transform(config, bookPath));
+      }
+
+      const bookPayload = await requestJson(`/books/${book.slug}`);
+      const chapters = bookPayload.chapters || [];
+
+      for (const chapter of chapters) {
+        if (!chapter?.slug) continue;
+
+        const chapterPath = DYNAMIC_ROUTE_BUILDERS.chapter(chapter.slug);
+        if (seenPaths.has(chapterPath)) continue;
+
+        seenPaths.add(chapterPath);
+        paths.push(await config.transform(config, chapterPath));
+      }
+    }
+
+    return paths.filter(Boolean);
+  } catch (error) {
+    console.warn(`[next-sitemap] Skipping future book and chapter paths: ${error.message}`);
+    return [];
+  }
+}
+
 module.exports = {
   siteUrl: SITE_URL,
   outDir: 'public',
@@ -57,62 +102,27 @@ module.exports = {
       return null;
     }
 
+    const isStaticPublicPath = STATIC_PUBLIC_PATH_SET.has(path);
+    const isFutureBookPath = ENABLE_FUTURE_BOOK_SITEMAP && (path.startsWith('/book/') || path.startsWith('/chapter/'));
+
+    if (!isStaticPublicPath && !isFutureBookPath) {
+      return null;
+    }
+
     return {
       loc: path,
       changefreq: 'daily',
-      priority: path === '/' ? 1 : 0.7,
+      priority: getPriority(path),
       lastmod: new Date().toISOString(),
       alternateRefs: config.alternateRefs || []
     };
   },
   additionalPaths: async (config) => {
-    const dynamicResults = await Promise.allSettled([fetchAllBooks(), fetchAllBlogPosts()]);
-    const [booksResult, blogPostsResult] = dynamicResults;
+    const staticPaths = await Promise.all(
+      STATIC_PUBLIC_PATHS.map((path) => config.transform(config, path))
+    );
+    const futureBookPaths = ENABLE_FUTURE_BOOK_SITEMAP ? await fetchFutureBookPaths(config) : [];
 
-    if (booksResult.status === 'rejected') {
-      console.warn(`[next-sitemap] Unable to fetch books: ${booksResult.reason.message}`);
-    }
-
-    if (blogPostsResult.status === 'rejected') {
-      console.warn(`[next-sitemap] Unable to fetch blog posts: ${blogPostsResult.reason.message}`);
-    }
-
-    const books = booksResult.status === 'fulfilled' ? booksResult.value : [];
-    const blogPosts = blogPostsResult.status === 'fulfilled' ? blogPostsResult.value : [];
-    const categorySet = new Set();
-    const paths = [(await config.transform(config, '/blog'))].filter(Boolean);
-
-    for (const book of books) {
-      if (!book?.slug) continue;
-
-      paths.push(await config.transform(config, `/books/${book.slug}`));
-
-      if (book.category) {
-        categorySet.add(book.category);
-      }
-
-      try {
-        const bookPayload = await requestJson(`/books/${book.slug}`);
-        const chapters = bookPayload.chapters || [];
-
-        for (const chapter of chapters) {
-          if (!chapter?.slug) continue;
-          paths.push(await config.transform(config, `/books/${book.slug}/${chapter.slug}`));
-        }
-      } catch (error) {
-        console.warn(`[next-sitemap] Skipping chapters for ${book.slug}: ${error.message}`);
-      }
-    }
-
-    for (const category of categorySet) {
-      paths.push(await config.transform(config, `/category/${category}`));
-    }
-
-    for (const post of blogPosts) {
-      if (!post?.slug) continue;
-      paths.push(await config.transform(config, `/blog/${post.slug}`));
-    }
-
-    return paths.filter(Boolean);
+    return [...staticPaths, ...futureBookPaths].filter(Boolean);
   }
 };
