@@ -23,19 +23,8 @@ async function requestJson(path) {
 }
 
 async function fetchAllBlogPosts() {
-  const posts = [];
-  let page = 1;
-  let totalPages = 1;
-
-  while (page <= totalPages) {
-    const payload = await requestJson(`/blog?page=${page}&limit=100`);
-    posts.push(...(payload.data || []));
-
-    totalPages = payload.pagination?.totalPages || 1;
-    page += 1;
-  }
-
-  return posts;
+  const payload = await requestJson('/blog');
+  return payload.data || [];
 }
 
 async function fetchAllBooks() {

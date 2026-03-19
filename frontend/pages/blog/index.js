@@ -4,7 +4,7 @@ import BlogCard from '../../components/BlogCard';
 import api from '../../utils/api';
 import { buildMeta } from '../../utils/seo';
 
-export default function BlogIndexPage({ posts, error }) {
+export default function BlogIndexPage({ posts }) {
   const meta = buildMeta({
     title: 'ReadNovaX Blog | Reading tips, updates, and guides',
     description: 'Explore the latest ReadNovaX articles, reading guides, feature updates, and curated recommendations.',
@@ -45,9 +45,7 @@ export default function BlogIndexPage({ posts, error }) {
         </div>
       </section>
 
-      {error ? (
-        <p className="rounded-2xl border border-red-200 bg-red-50 p-4 text-red-600 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">{error}</p>
-      ) : posts.length === 0 ? (
+      {posts.length === 0 ? (
         <div className="rounded-3xl border border-dashed border-slate-300 p-10 text-center text-base font-medium text-slate-500 dark:border-slate-700 dark:text-slate-300">
           No blog posts yet
         </div>
@@ -62,9 +60,9 @@ export default function BlogIndexPage({ posts, error }) {
 
 export async function getServerSideProps() {
   try {
-    const { data } = await api.get('/blog', { params: { limit: 100 } });
-    return { props: { posts: data.data || [], error: null } };
-  } catch (error) {
-    return { props: { posts: [], error: error.message } };
+    const { data } = await api.get('/blog');
+    return { props: { posts: data.data || [] } };
+  } catch (_error) {
+    return { props: { posts: [] } };
   }
 }
