@@ -107,3 +107,33 @@ input::placeholder,
 textarea::placeholder {
   @apply text-slate-400;
 }
+
+
+.route-loading-bar {
+  animation: routeLoadingSlide 1.1s ease-in-out infinite;
+}
+
+.route-loading-pulse {
+  animation: routeLoadingPulse 1s ease-in-out infinite;
+}
+
+@keyframes routeLoadingSlide {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(420%);
+  }
+}
+
+@keyframes routeLoadingPulse {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

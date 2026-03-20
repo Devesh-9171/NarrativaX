@@ -4,7 +4,7 @@ import BlogCard from '../../components/BlogCard';
 import api from '../../utils/api';
 import { buildMeta } from '../../utils/seo';
 
-export default function BlogIndexPage({ posts }) {
+export default function BlogIndexPage({ posts, isFallback }) {
   const meta = buildMeta({
     title: 'ReadNovaX Blog | Reading tips, updates, and guides',
     description: 'Explore the latest ReadNovaX articles, reading guides, feature updates, and curated recommendations.',
@@ -45,6 +45,12 @@ export default function BlogIndexPage({ posts }) {
         </div>
       </section>
 
+      {isFallback && (
+        <div className="mb-6 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-700 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-200">
+          We&apos;re still waking up the blog service, so posts may appear shortly.
+        </div>
+      )}
+
       {posts.length === 0 ? (
         <div className="rounded-3xl border border-dashed border-slate-300 p-10 text-center text-base font-medium text-slate-500 dark:border-slate-700 dark:text-slate-300">
           No blog posts yet
@@ -61,8 +67,8 @@ export default function BlogIndexPage({ posts }) {
 export async function getServerSideProps() {
   try {
     const { data } = await api.get('/blog');
-    return { props: { posts: data.data || [] } };
+    return { props: { posts: data.data || [], isFallback: false } };
   } catch (_error) {
-    return { props: { posts: [] } };
+    return { props: { posts: [], isFallback: true } };
   }
 }
