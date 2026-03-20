@@ -35,7 +35,7 @@ const sections = [
   },
   {
     title: 'Contact Us',
-    body: 'For any questions, contact us at support@readnovax.in.'
+    body: 'For any questions, contact us at readnovax@gmail.com.'
   }
 ];
 
