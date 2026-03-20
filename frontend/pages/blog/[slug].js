@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import Link from 'next/link';
 import Layout from '../../components/Layout';
 import SeoHead from '../../components/SeoHead';
 import BlogContent from '../../components/BlogContent';
@@ -13,11 +14,19 @@ function formatDate(date) {
   }).format(new Date(date));
 }
 
-export default function BlogPostPage({ post, error }) {
-  if (error || !post) {
+export default function BlogPostPage({ post, isFallback }) {
+  if (!post) {
     return (
       <Layout>
-        <p className="rounded-2xl border border-red-200 bg-red-50 p-4 text-red-600 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">{error || 'Blog post not found.'}</p>
+        <div className="rounded-3xl border border-dashed border-slate-300 bg-white/80 px-6 py-10 text-center dark:border-slate-700 dark:bg-slate-950/80">
+          <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">This article is still loading</h1>
+          <p className="mt-3 text-slate-600 dark:text-slate-300">
+            {isFallback ? 'The backend is waking up, so we are keeping the blog page calm and stable.' : 'We could not find this blog post yet.'}
+          </p>
+          <Link href="/blog" className="mt-5 inline-flex rounded-full bg-brand-600 px-5 py-2.5 text-white transition hover:bg-brand-500">
+            Back to blog
+          </Link>
+        </div>
       </Layout>
     );
   }
@@ -73,8 +82,8 @@ export default function BlogPostPage({ post, error }) {
 export async function getServerSideProps({ params }) {
   try {
     const { data } = await api.get(`/blog/${params.slug}`);
-    return { props: { post: data.post || null, error: null } };
-  } catch (error) {
-    return { props: { post: null, error: error.message } };
+    return { props: { post: data.post || null, isFallback: false } };
+  } catch (_error) {
+    return { props: { post: null, isFallback: true } };
   }
 }
