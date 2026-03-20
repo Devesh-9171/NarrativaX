@@ -56,8 +56,9 @@ Backend: `https://readnovax.onrender.com`
 ## Deployment
 ### Option A: Cloud (recommended)
 - Deploy frontend on Vercel.
-- Deploy backend on Render/Railway.
+- Deploy backend on Render/Railway using the `backend` root directory or the included `render.yaml` blueprint.
 - Host MongoDB on MongoDB Atlas.
+- For Render backend health checks, use `/api/health`.
 
 ### Option B: VPS (Docker)
 1. Build frontend and backend containers.
