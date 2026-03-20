@@ -6,11 +6,19 @@ import AdSlot from '../../../components/AdSlot';
 import api from '../../../utils/api';
 import { buildMeta } from '../../../utils/seo';
 
-export default function BookPage({ book, chapters, error }) {
-  if (error) {
+export default function BookPage({ book, chapters, isFallback }) {
+  if (!book) {
     return (
       <Layout>
-        <p className="rounded border border-red-200 bg-red-50 p-4 text-red-600 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">{error}</p>
+        <div className="rounded-3xl border border-dashed border-slate-300 bg-white/80 px-6 py-10 text-center dark:border-slate-700 dark:bg-slate-950/80">
+          <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">This book is still loading</h1>
+          <p className="mt-3 text-slate-600 dark:text-slate-300">
+            {isFallback ? 'The backend is waking up, so we are showing a safe empty state for now.' : 'We could not find this book yet.'}
+          </p>
+          <Link href="/" className="mt-5 inline-flex rounded-full bg-brand-600 px-5 py-2.5 text-white transition hover:bg-brand-500">
+            Browse homepage
+          </Link>
+        </div>
       </Layout>
     );
   }
@@ -50,12 +58,14 @@ export default function BookPage({ book, chapters, error }) {
       <section>
         <h2 className="mb-3 text-2xl font-semibold">Chapters</h2>
         <div className="rounded-3xl border bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-          {chapters.map((chapter) => (
+          {chapters.length > 0 ? chapters.map((chapter) => (
             <Link key={chapter._id} href={`/${book.slug}/${chapter.slug}`} className="block border-b border-slate-200 py-3 last:border-none dark:border-slate-800">
               <span className="text-sm font-medium text-slate-500 dark:text-slate-400">Chapter {chapter.chapterNumber}</span>
               <span className="mt-1 block text-base">{chapter.title}</span>
             </Link>
-          ))}
+          )) : (
+            <p className="text-sm text-slate-500 dark:text-slate-400">Chapter list will appear here once it finishes loading.</p>
+          )}
         </div>
       </section>
     </Layout>
@@ -65,8 +75,8 @@ export default function BookPage({ book, chapters, error }) {
 export async function getServerSideProps({ params }) {
   try {
     const { data } = await api.get(`/books/${params.slug}`);
-    return { props: { ...data, error: null } };
-  } catch (error) {
-    return { props: { book: null, chapters: [], error: error.message } };
+    return { props: { ...data, isFallback: false } };
+  } catch (_error) {
+    return { props: { book: null, chapters: [], isFallback: true } };
   }
 }

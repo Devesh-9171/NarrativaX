@@ -6,8 +6,8 @@ export default ChapterReaderPage;
 export async function getServerSideProps({ params }) {
   try {
     const { data } = await api.get(`/chapters/${params.slug}/${params.chapterSlug}`);
-    return { props: { ...data, error: null } };
-  } catch (error) {
+    return { props: { ...data, isFallback: false } };
+  } catch (_error) {
     return {
       props: {
         book: null,
@@ -15,7 +15,7 @@ export async function getServerSideProps({ params }) {
         chapters: [],
         previousChapter: null,
         nextChapter: null,
-        error: error.message
+        isFallback: true
       }
     };
   }

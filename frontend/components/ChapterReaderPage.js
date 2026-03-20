@@ -18,7 +18,7 @@ function getChapterHref(bookSlug, chapterSlug) {
   return `/${bookSlug}/${chapterSlug}`;
 }
 
-export default function ChapterReaderPage({ book, chapter, chapters = [], previousChapter, nextChapter, error }) {
+export default function ChapterReaderPage({ book, chapter, chapters = [], previousChapter, nextChapter, isFallback }) {
   const router = useRouter();
   const sentinelRef = useRef(null);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
@@ -134,10 +134,18 @@ export default function ChapterReaderPage({ book, chapter, chapters = [], previo
     return () => observer.disconnect();
   }, [paragraphs.length, visibleParagraphs]);
 
-  if (error || !book || !chapter) {
+  if (!book || !chapter) {
     return (
       <Layout>
-        <p className="rounded border border-red-200 bg-red-50 p-4 text-red-600 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">{error || 'Chapter not found'}</p>
+        <div className="rounded-3xl border border-dashed border-slate-300 bg-white/80 px-6 py-10 text-center dark:border-slate-700 dark:bg-slate-950/80">
+          <h1 className="text-2xl font-semibold text-slate-900 dark:text-white">This chapter is still loading</h1>
+          <p className="mt-3 text-slate-600 dark:text-slate-300">
+            {isFallback ? 'The reading server is waking up, so we are keeping the page stable until content is ready.' : 'We could not load this chapter yet.'}
+          </p>
+          <Link href={book ? `/books/${book.slug}` : '/'} className="mt-5 inline-flex rounded-full bg-brand-600 px-5 py-2.5 text-white transition hover:bg-brand-500">
+            Browse another page
+          </Link>
+        </div>
       </Layout>
     );
   }
