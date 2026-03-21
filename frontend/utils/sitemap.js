@@ -6,6 +6,9 @@ const DEFAULT_API_BASE_URL = 'https://readnovax.onrender.com/api';
 const SITEMAP_FETCH_TIMEOUT_MS = 45000;
 const SITEMAP_RETRY_DELAYS_MS = [0, 1500, 3000, 5000];
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+const XML_DECLARATION = '<?xml version="1.0" encoding="UTF-8"?>';
+const XML_URLSET_OPEN = '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">';
+const XML_URLSET_CLOSE = '</urlset>';
 
 const STATIC_ROUTE_FILES = [
   { path: '/', file: 'pages/index.js' },
@@ -140,11 +143,13 @@ function createUrlEntry({ loc, lastmod, alternates = [] }) {
 }
 
 function buildSitemapDocument(entries) {
+  const safeEntries = Array.isArray(entries) ? entries.filter((entry) => typeof entry === 'string' && entry.trim()) : [];
   return [
-    '<?xml version="1.0" encoding="UTF-8"?>',
-    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">',
-    ...entries,
-    '</urlset>'
+    XML_DECLARATION,
+    XML_URLSET_OPEN,
+    ...safeEntries,
+    XML_URLSET_CLOSE,
+    ''
   ].join('\n');
 }
 
@@ -177,6 +182,13 @@ function createStaticEntries(generatedAt) {
   }));
 }
 
+function createHomepageOnlyEntries(generatedAt) {
+  return [createUrlEntry({
+    loc: buildAbsoluteUrl('/'),
+    lastmod: normalizeIsoDate(generatedAt, generatedAt)
+  })];
+}
+
 function dedupeAndSortEntries(rawEntries = []) {
   const seen = new Set();
   return rawEntries
@@ -196,15 +208,19 @@ export function validateSitemapXml(xml) {
     throw new Error('Sitemap XML is empty');
   }
 
-  if (!xml.startsWith('<?xml version="1.0" encoding="UTF-8"?>')) {
+  if (!xml.includes('\n')) {
+    throw new Error('Sitemap XML must be multi-line');
+  }
+
+  if (!xml.startsWith(XML_DECLARATION)) {
     throw new Error('Sitemap XML declaration is missing or invalid');
   }
 
-  if (!xml.includes('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">')) {
+  if (!xml.includes(XML_URLSET_OPEN)) {
     throw new Error('Sitemap root element or namespaces are invalid');
   }
 
-  if (!xml.trim().endsWith('</urlset>')) {
+  if (!xml.trim().endsWith(XML_URLSET_CLOSE)) {
     throw new Error('Sitemap root element is not properly closed');
   }
 
@@ -335,9 +351,13 @@ function createDynamicEntries(payload = {}, generatedAt = new Date().toISOString
 }
 
 function createFallbackSitemap(generatedAt = new Date().toISOString()) {
-  const xml = buildSitemapDocument(createStaticEntries(generatedAt));
+  const xml = buildSitemapDocument(createHomepageOnlyEntries(generatedAt));
   validateSitemapXml(xml);
   return xml;
+}
+
+function logSitemapXml(xml, context = 'generated') {
+  console.info(`[sitemap] Final XML (${context}):\n${xml}`);
 }
 
 export async function buildSitemapXml() {
@@ -345,17 +365,21 @@ export async function buildSitemapXml() {
 
   try {
     const payload = await fetchJsonWithRetry('/sitemap');
-    const generatedAt = normalizeIsoDate(payload.generatedAt, fallbackGeneratedAt);
+    const generatedAt = normalizeIsoDate(payload?.generatedAt, fallbackGeneratedAt);
     const entries = [
       ...createStaticEntries(generatedAt),
       ...createDynamicEntries(payload, generatedAt)
     ];
     const xml = buildSitemapDocument(entries);
     validateSitemapXml(xml);
+    logSitemapXml(xml, 'dynamic');
     return xml;
   } catch (error) {
-    console.error('[sitemap] Falling back to static sitemap XML.', error);
-    return createFallbackSitemap(fallbackGeneratedAt);
+    console.error('[sitemap] Falling back to minimal sitemap XML.', error);
+    const fallbackXml = createFallbackSitemap(fallbackGeneratedAt);
+    validateSitemapXml(fallbackXml);
+    logSitemapXml(fallbackXml, 'fallback');
+    return fallbackXml;
   }
 }
 
