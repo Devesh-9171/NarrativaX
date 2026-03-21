@@ -11,7 +11,11 @@ export function getStoredTheme() {
     return DEFAULT_THEME;
   }
 
-  return normalizeTheme(window.localStorage.getItem(THEME_STORAGE_KEY));
+  try {
+    return normalizeTheme(window.localStorage.getItem(THEME_STORAGE_KEY));
+  } catch {
+    return DEFAULT_THEME;
+  }
 }
 
 export function applyTheme(theme) {
@@ -22,12 +26,23 @@ export function applyTheme(theme) {
 }
 
 export function persistTheme(theme) {
-  if (typeof window === 'undefined') return normalizeTheme(theme);
-
   const normalizedTheme = normalizeTheme(theme);
-  window.localStorage.setItem(THEME_STORAGE_KEY, normalizedTheme);
+
+  if (typeof window !== 'undefined') {
+    try {
+      window.localStorage.setItem(THEME_STORAGE_KEY, normalizedTheme);
+    } catch {
+      // Ignore storage write failures and still apply the current theme.
+    }
+  }
+
   applyTheme(normalizedTheme);
-  window.dispatchEvent(new CustomEvent(THEME_CHANGE_EVENT, { detail: { theme: normalizedTheme } }));
+
+  if (typeof window !== 'undefined') {
+    window.__READNOVAX_THEME__ = normalizedTheme;
+    window.dispatchEvent(new CustomEvent(THEME_CHANGE_EVENT, { detail: { theme: normalizedTheme } }));
+  }
+
   return normalizedTheme;
 }
 
@@ -36,11 +51,18 @@ export function getThemeInitScript() {
     const key = '${THEME_STORAGE_KEY}';
     const defaultTheme = '${DEFAULT_THEME}';
     const normalizeTheme = (value) => value === 'light' ? 'light' : 'dark';
-    const storedTheme = normalizeTheme(window.localStorage.getItem(key));
-    const nextTheme = storedTheme || defaultTheme;
+    let nextTheme = defaultTheme;
+
+    try {
+      const storedTheme = window.localStorage.getItem(key);
+      nextTheme = normalizeTheme(storedTheme);
+      window.localStorage.setItem(key, nextTheme);
+    } catch {
+      nextTheme = defaultTheme;
+    }
 
     document.documentElement.classList.toggle('dark', nextTheme === 'dark');
     document.documentElement.dataset.theme = nextTheme;
-    window.localStorage.setItem(key, nextTheme);
+    window.__READNOVAX_THEME__ = nextTheme;
   })();`;
 }

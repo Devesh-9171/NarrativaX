@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Router from 'next/router';
 import Script from 'next/script';
 import '../styles/globals.css';
+import { ThemeProvider } from '../context/ThemeContext';
 
 function RouteLoadingOverlay() {
   return (
@@ -46,8 +47,10 @@ export default function App({ Component, pageProps }) {
           </Script>
         </>
       )}
-      {isRouteLoading && <RouteLoadingOverlay />}
-      <Component {...pageProps} />
+      <ThemeProvider>
+        {isRouteLoading && <RouteLoadingOverlay />}
+        <Component {...pageProps} />
+      </ThemeProvider>
     </>
   );
 }

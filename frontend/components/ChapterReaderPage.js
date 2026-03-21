@@ -7,12 +7,11 @@ import ReaderControls from './ReaderControls';
 import AdSlot from './AdSlot';
 import api from '../utils/api';
 import { buildMeta } from '../utils/seo';
-import { DEFAULT_THEME, getStoredTheme, persistTheme } from '../utils/theme';
+import { useTheme } from '../context/ThemeContext';
 
 const DEFAULT_SETTINGS = {
   fontSize: 19,
-  fontFamily: 'serif',
-  theme: DEFAULT_THEME
+  fontFamily: 'serif'
 };
 
 function buildBookHref(book) {
@@ -31,6 +30,7 @@ export default function ChapterReaderPage({ book, chapter, chapters = [], previo
   const [toast, setToast] = useState('');
   const [progress, setProgress] = useState(0);
   const [visibleParagraphs, setVisibleParagraphs] = useState(8);
+  const { theme, setTheme } = useTheme();
   const content = chapter?.content || '';
   const paragraphs = useMemo(() => content.split(/\n{2,}/).map((paragraph) => paragraph.trim()).filter(Boolean), [content]);
   const displayedParagraphs = paragraphs.slice(0, visibleParagraphs);
@@ -43,24 +43,25 @@ export default function ChapterReaderPage({ book, chapter, chapters = [], previo
     if (typeof window === 'undefined') return undefined;
 
     const stored = localStorage.getItem('reader-settings');
-    const initialTheme = getStoredTheme();
 
     if (stored) {
       try {
         const parsed = JSON.parse(stored);
-        setSettings({ ...DEFAULT_SETTINGS, ...parsed, theme: initialTheme });
+        setSettings({
+          fontSize: Number(parsed.fontSize) || DEFAULT_SETTINGS.fontSize,
+          fontFamily: parsed.fontFamily === 'sans' ? 'sans' : DEFAULT_SETTINGS.fontFamily
+        });
       } catch {
-        setSettings((current) => ({ ...current, theme: initialTheme }));
+        setSettings(DEFAULT_SETTINGS);
       }
     } else {
-      setSettings((current) => ({ ...current, theme: initialTheme }));
+      setSettings(DEFAULT_SETTINGS);
     }
   }, [chapter?._id]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
     localStorage.setItem('reader-settings', JSON.stringify(settings));
-    persistTheme(settings.theme);
   }, [settings]);
 
   useEffect(() => {
@@ -234,9 +235,10 @@ export default function ChapterReaderPage({ book, chapter, chapters = [], previo
 
         <ReaderControls
           settings={settings}
+          theme={theme}
           onDecreaseFont={() => setSettings((current) => ({ ...current, fontSize: Math.max(16, current.fontSize - 1) }))}
           onIncreaseFont={() => setSettings((current) => ({ ...current, fontSize: Math.min(24, current.fontSize + 1) }))}
-          onToggleTheme={() => setSettings((current) => ({ ...current, theme: current.theme === 'dark' ? 'light' : 'dark' }))}
+          onToggleTheme={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
           onFamilyChange={(fontFamily) => setSettings((current) => ({ ...current, fontFamily }))}
           chapterOptions={chapters}
           currentChapterSlug={chapter.slug}

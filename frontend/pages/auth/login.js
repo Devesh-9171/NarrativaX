@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import Layout from '../../components/Layout';
 import api from '../../utils/api';
 
-const INPUT_CLASS = 'w-full rounded-lg px-3 py-2 bg-gray-900 text-white placeholder-gray-400 border border-gray-700 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30';
+const INPUT_CLASS = 'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 placeholder-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder-slate-500';
 
 export default function LoginPage() {
   const [form, setForm] = useState({ email: '', password: '' });
@@ -36,7 +36,7 @@ export default function LoginPage() {
     <Layout>
       <form onSubmit={submit} className="mx-auto max-w-md space-y-3 rounded-xl border bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
         <h1 className="text-2xl font-bold">Login</h1>
-        {error && <p className="rounded border border-red-500/40 bg-red-500/10 p-2 text-sm text-red-200">{error}</p>}
+        {error && <p className="rounded border border-red-500/40 bg-red-500/10 p-2 text-sm text-red-700 dark:text-red-200">{error}</p>}
         <input className={INPUT_CLASS} type="email" required placeholder="Email" onChange={(e) => setForm({ ...form, email: e.target.value })} />
         <input className={INPUT_CLASS} type="password" required minLength={8} placeholder="Password" onChange={(e) => setForm({ ...form, password: e.target.value })} />
         <button disabled={loading} className="w-full rounded bg-brand-600 py-2 text-white disabled:opacity-60">{loading ? 'Signing in...' : 'Sign In'}</button>

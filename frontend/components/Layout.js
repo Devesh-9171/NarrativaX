@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
-import { THEME_CHANGE_EVENT, applyTheme, getStoredTheme, persistTheme } from '../utils/theme';
+import { useTheme } from '../context/ThemeContext';
 
 const INPUT_CLASS = 'border border-slate-300 bg-white text-slate-900 placeholder-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder-slate-500';
 const NAV_LINK_CLASS = 'transition hover:text-brand-600 dark:hover:text-sky-300';
@@ -16,34 +16,21 @@ const FOOTER_LINKS = [
 
 export default function Layout({ children }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [darkMode, setDarkMode] = useState(true);
   const [search, setSearch] = useState('');
   const [authenticated, setAuthenticated] = useState(false);
+  const { isDark, toggleTheme } = useTheme();
   const router = useRouter();
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
 
-    const syncTheme = () => {
-      const nextTheme = getStoredTheme();
-      setDarkMode(nextTheme === 'dark');
-      applyTheme(nextTheme);
-    };
     const syncAuth = () => setAuthenticated(Boolean(window.localStorage.getItem('token')));
-    const handleThemeChange = (event) => {
-      const nextTheme = event?.detail?.theme || getStoredTheme();
-      setDarkMode(nextTheme === 'dark');
-      applyTheme(nextTheme);
-    };
 
-    syncTheme();
     syncAuth();
-    window.addEventListener(THEME_CHANGE_EVENT, handleThemeChange);
-    window.addEventListener('storage', syncTheme);
+    window.addEventListener('storage', syncAuth);
 
     return () => {
-      window.removeEventListener(THEME_CHANGE_EVENT, handleThemeChange);
-      window.removeEventListener('storage', syncTheme);
+      window.removeEventListener('storage', syncAuth);
     };
   }, []);
 
@@ -51,10 +38,6 @@ export default function Layout({ children }) {
     if (typeof window === 'undefined') return;
     setAuthenticated(Boolean(window.localStorage.getItem('token')));
   }, [router.asPath]);
-
-  useEffect(() => {
-    persistTheme(darkMode ? 'dark' : 'light');
-  }, [darkMode]);
 
   const navItems = useMemo(
     () => [
@@ -140,10 +123,10 @@ export default function Layout({ children }) {
 
             <button
               type="button"
-              onClick={() => setDarkMode((value) => !value)}
+              onClick={toggleTheme}
               className="rounded-full border border-slate-300 px-3 py-1.5 transition hover:border-brand-400 hover:text-brand-600 dark:border-slate-700 dark:hover:border-sky-400 dark:hover:text-sky-300"
             >
-              {darkMode ? 'Light' : 'Dark'}
+              {isDark ? 'Light' : 'Dark'}
             </button>
           </nav>
         </div>

@@ -3,9 +3,9 @@ import { getThemeInitScript } from '../utils/theme';
 
 export default function Document() {
   return (
-    <Html lang="en">
+    <Html lang="en" suppressHydrationWarning>
       <Head />
-      <body>
+      <body suppressHydrationWarning>
         <script dangerouslySetInnerHTML={{ __html: getThemeInitScript() }} />
         <Main />
         <NextScript />
