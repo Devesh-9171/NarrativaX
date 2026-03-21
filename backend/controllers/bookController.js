@@ -6,14 +6,12 @@ const asyncHandler = require('../utils/asyncHandler');
 const AppError = require('../utils/AppError');
 const { getPagination, buildPaginationMeta } = require('../utils/pagination');
 const { cache, cacheKey } = require('../utils/cache');
+const { DEFAULT_LANGUAGE, normalizeLanguage } = require('../utils/language');
 
 function computeTrendingScore(book) {
   return book.viewsLast24h * 3 + book.viewsLast7d * 2 + book.totalViews;
 }
 
-function normalizeLanguage(value, fallback = 'en') {
-  return value === 'hi' ? 'hi' : fallback;
-}
 
 function createBookSlug(title, language) {
   const baseSlug = slugify(String(title || ''), { lower: true, strict: true, trim: true });
@@ -87,7 +85,7 @@ async function resolveBookVariant(identifier, requestedLanguage) {
   const seedBook = await Book.findOne(matcher).lean();
   if (!seedBook) return null;
 
-  const language = normalizeLanguage(requestedLanguage, seedBook.language || 'en');
+  const language = normalizeLanguage(requestedLanguage, seedBook.language || DEFAULT_LANGUAGE);
   const translatedBook = await Book.findOne({ groupId: seedBook.groupId || seedBook._id.toString(), language }).lean();
 
   return translatedBook || seedBook;
@@ -130,7 +128,7 @@ exports.updateBook = asyncHandler(async (req, res) => {
   const book = await Book.findById(req.params.id);
   if (!book) throw new AppError('Book not found', 404);
 
-  const nextLanguage = normalizeLanguage(language, book.language || 'en');
+  const nextLanguage = normalizeLanguage(language, book.language || DEFAULT_LANGUAGE);
   const nextTitle = title ? String(title).trim() : book.title;
   const nextSlug = await ensureUniqueBookSlug(nextTitle, nextLanguage, book._id);
   const nextGroupId = groupId ? await resolveGroupId(groupId) : book.groupId || book._id.toString();
@@ -167,7 +165,7 @@ exports.deleteBook = asyncHandler(async (req, res) => {
 });
 
 exports.getHomepage = asyncHandler(async (req, res) => {
-  const lang = normalizeLanguage(req.query.lang, 'en');
+  const lang = normalizeLanguage(req.query.lang, DEFAULT_LANGUAGE);
   const key = cacheKey(['homepage', lang]);
   const cached = cache.get(key);
   if (cached) return res.json({ success: true, ...cached });
@@ -207,8 +205,8 @@ exports.getHomepage = asyncHandler(async (req, res) => {
 });
 
 exports.getBooks = asyncHandler(async (req, res) => {
-  const { search = '', category, sort = 'updatedAt', lang = 'en' } = req.query;
-  const preferredLanguage = normalizeLanguage(lang, 'en');
+  const { search = '', category, sort = 'updatedAt', lang = DEFAULT_LANGUAGE } = req.query;
+  const preferredLanguage = normalizeLanguage(lang, DEFAULT_LANGUAGE);
   const { page, limit } = getPagination(req.query, { defaultLimit: 20, maxLimit: 100 });
   const query = {};
 
@@ -239,7 +237,7 @@ exports.getBooks = asyncHandler(async (req, res) => {
 });
 
 exports.getBookById = asyncHandler(async (req, res) => {
-  const lang = normalizeLanguage(req.query.lang, 'en');
+  const lang = normalizeLanguage(req.query.lang, DEFAULT_LANGUAGE);
   const key = cacheKey(['book-id', req.params.id, lang]);
   const cached = cache.get(key);
   if (cached) return res.json({ success: true, ...cached });
@@ -261,7 +259,7 @@ exports.getBookById = asyncHandler(async (req, res) => {
 });
 
 exports.getBookBySlug = asyncHandler(async (req, res) => {
-  const lang = normalizeLanguage(req.query.lang, 'en');
+  const lang = normalizeLanguage(req.query.lang, DEFAULT_LANGUAGE);
   const key = cacheKey(['book', req.params.slug, lang]);
   const cached = cache.get(key);
   if (cached) return res.json(cached);
@@ -284,7 +282,7 @@ exports.getBookBySlug = asyncHandler(async (req, res) => {
 
 exports.getCategoryBooks = asyncHandler(async (req, res) => {
   const { page, limit } = getPagination(req.query, { defaultLimit: 24, maxLimit: 100 });
-  const preferredLanguage = normalizeLanguage(req.query.lang, 'en');
+  const preferredLanguage = normalizeLanguage(req.query.lang, DEFAULT_LANGUAGE);
   const query = { category: req.params.slug };
 
   const allBooks = await Book.find(query)

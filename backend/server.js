@@ -9,6 +9,8 @@ const mongoose = require('mongoose');
 const config = require('./config');
 const connectDB = require('./config/db');
 const { notFound, errorHandler } = require('./middleware/errorMiddleware');
+const Book = require('./models/Book');
+const Chapter = require('./models/Chapter');
 
 const app = express();
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -64,9 +66,14 @@ function buildHealthPayload() {
   };
 }
 
+async function syncDatabaseIndexes() {
+  await Promise.all([Book.syncIndexes(), Chapter.syncIndexes()]);
+}
+
 async function connectDatabaseWithRetry() {
   try {
     await connectDB(config.mongoUri);
+    await syncDatabaseIndexes();
     isDatabaseConnected = true;
     databaseError = null;
   } catch (error) {

@@ -1,6 +1,5 @@
 const mongoose = require('mongoose');
-
-const LANGUAGE_VALUES = ['en', 'hi'];
+const { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES } = require('../utils/language');
 
 const bookSchema = new mongoose.Schema(
   {
@@ -14,7 +13,7 @@ const bookSchema = new mongoose.Schema(
     },
     description: { type: String, required: true },
     coverImage: { type: String, required: true },
-    language: { type: String, enum: LANGUAGE_VALUES, default: 'en', index: true },
+    language: { type: String, enum: SUPPORTED_LANGUAGES, default: DEFAULT_LANGUAGE, index: true },
     groupId: { type: String, trim: true, index: true },
     rating: { type: Number, default: 0, min: 0, max: 5 },
     totalViews: { type: Number, default: 0, index: true },
@@ -28,7 +27,7 @@ const bookSchema = new mongoose.Schema(
 
 bookSchema.pre('save', function setDefaultLanguageAndGroup(next) {
   if (!this.language) {
-    this.language = 'en';
+    this.language = DEFAULT_LANGUAGE;
   }
 
   if (!this.groupId && this._id) {
@@ -38,7 +37,10 @@ bookSchema.pre('save', function setDefaultLanguageAndGroup(next) {
   next();
 });
 
-bookSchema.index({ title: 'text', author: 'text', category: 'text' });
+bookSchema.index(
+  { title: 'text', author: 'text', category: 'text' },
+  { default_language: 'none', language_override: 'searchLanguage' }
+);
 bookSchema.index({ category: 1, totalViews: -1 });
 bookSchema.index({ featured: 1, updatedAt: -1 });
 bookSchema.index({ updatedAt: -1 });

@@ -6,15 +6,13 @@ const BlogPost = require('../models/BlogPost');
 const asyncHandler = require('../utils/asyncHandler');
 const AppError = require('../utils/AppError');
 const { cache } = require('../utils/cache');
+const { DEFAULT_LANGUAGE, normalizeLanguage } = require('../utils/language');
 const { sanitizeHtml } = require('../utils/html');
 
 function generateSlug(value) {
   return slugify(String(value || ''), { lower: true, strict: true, trim: true });
 }
 
-function normalizeLanguage(value, fallback = 'en') {
-  return value === 'hi' ? 'hi' : fallback;
-}
 
 async function resolveGroupId(groupId) {
   if (!groupId) return crypto.randomUUID();
@@ -45,7 +43,7 @@ async function ensureUniqueBlogSlug(title, excludeId) {
 exports.createBook = asyncHandler(async (req, res) => {
   const data = req.body;
   const groupId = await resolveGroupId(data.groupId);
-  const language = normalizeLanguage(data.language);
+  const language = normalizeLanguage(data.language, DEFAULT_LANGUAGE);
   const duplicateLanguage = await Book.findOne({ groupId, language }).lean();
   if (duplicateLanguage) {
     throw new AppError('This language already exists for the selected book group', 409);
@@ -68,7 +66,7 @@ exports.updateBook = asyncHandler(async (req, res) => {
   if (!existingBook) throw new AppError('Book not found', 404);
 
   const data = req.body;
-  const nextLanguage = normalizeLanguage(data.language, existingBook.language || 'en');
+  const nextLanguage = normalizeLanguage(data.language, existingBook.language || DEFAULT_LANGUAGE);
   const nextGroupId = data.groupId ? await resolveGroupId(data.groupId) : existingBook.groupId || String(existingBook._id);
 
   const duplicateLanguage = await Book.findOne({ groupId: nextGroupId, language: nextLanguage, _id: { $ne: existingBook._id } }).lean();
@@ -95,7 +93,7 @@ exports.addChapter = asyncHandler(async (req, res) => {
   const chapter = await Chapter.create({
     ...req.body,
     bookId: book._id,
-    language: book.language || 'en',
+    language: book.language || DEFAULT_LANGUAGE,
     slug: generateSlug(req.body.title || `chapter-${req.body.chapterNumber}`)
   });
 

@@ -7,11 +7,12 @@ import ReaderControls from './ReaderControls';
 import AdSlot from './AdSlot';
 import api from '../utils/api';
 import { buildMeta } from '../utils/seo';
+import { DEFAULT_THEME, getStoredTheme, persistTheme } from '../utils/theme';
 
 const DEFAULT_SETTINGS = {
   fontSize: 19,
   fontFamily: 'serif',
-  theme: 'light'
+  theme: DEFAULT_THEME
 };
 
 function buildBookHref(book) {
@@ -42,7 +43,7 @@ export default function ChapterReaderPage({ book, chapter, chapters = [], previo
     if (typeof window === 'undefined') return undefined;
 
     const stored = localStorage.getItem('reader-settings');
-    const initialTheme = localStorage.getItem('theme') || DEFAULT_SETTINGS.theme;
+    const initialTheme = getStoredTheme();
 
     if (stored) {
       try {
@@ -59,9 +60,7 @@ export default function ChapterReaderPage({ book, chapter, chapters = [], previo
   useEffect(() => {
     if (typeof window === 'undefined') return;
     localStorage.setItem('reader-settings', JSON.stringify(settings));
-    document.documentElement.classList.toggle('dark', settings.theme === 'dark');
-    localStorage.setItem('theme', settings.theme);
-    window.dispatchEvent(new CustomEvent('theme-change', { detail: { theme: settings.theme } }));
+    persistTheme(settings.theme);
   }, [settings]);
 
   useEffect(() => {

@@ -1,9 +1,10 @@
 const mongoose = require('mongoose');
+const { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES } = require('../utils/language');
 
 const chapterSchema = new mongoose.Schema(
   {
     bookId: { type: mongoose.Schema.Types.ObjectId, ref: 'Book', required: true, index: true },
-    language: { type: String, enum: ['en', 'hi'], default: 'en', index: true },
+    language: { type: String, enum: SUPPORTED_LANGUAGES, default: DEFAULT_LANGUAGE, index: true },
     title: { type: String, required: true },
     slug: { type: String, required: true, index: true },
     chapterNumber: { type: Number, required: true },

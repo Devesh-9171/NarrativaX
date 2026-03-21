@@ -4,10 +4,8 @@ const Chapter = require('../models/Chapter');
 const asyncHandler = require('../utils/asyncHandler');
 const AppError = require('../utils/AppError');
 const { cache, cacheKey } = require('../utils/cache');
+const { DEFAULT_LANGUAGE, normalizeLanguage } = require('../utils/language');
 
-function normalizeLanguage(value, fallback = 'en') {
-  return value === 'hi' ? 'hi' : fallback;
-}
 
 exports.createChapter = asyncHandler(async (req, res) => {
   const { bookId, chapterNumber, title, content } = req.body;
@@ -30,7 +28,7 @@ exports.createChapter = asyncHandler(async (req, res) => {
 
   const chapter = await Chapter.create({
     bookId: book._id,
-    language: book.language || 'en',
+    language: book.language || DEFAULT_LANGUAGE,
     chapterNumber: Number(chapterNumber),
     title: String(title).trim(),
     content: String(content).trim(),
@@ -43,7 +41,7 @@ exports.createChapter = asyncHandler(async (req, res) => {
 
 exports.getChapter = asyncHandler(async (req, res) => {
   const { slug, chapterSlug } = req.params;
-  const requestedLanguage = normalizeLanguage(req.query.lang, 'en');
+  const requestedLanguage = normalizeLanguage(req.query.lang, DEFAULT_LANGUAGE);
   const key = cacheKey(['chapter', slug, chapterSlug, requestedLanguage]);
   const cached = cache.get(key);
   if (cached) return res.json(cached);

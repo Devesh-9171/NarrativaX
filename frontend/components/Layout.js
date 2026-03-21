@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
+import { THEME_CHANGE_EVENT, applyTheme, getStoredTheme, persistTheme } from '../utils/theme';
 
 const INPUT_CLASS = 'border border-slate-300 bg-white text-slate-900 placeholder-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder-slate-500';
 const NAV_LINK_CLASS = 'transition hover:text-brand-600 dark:hover:text-sky-300';
@@ -15,26 +16,44 @@ const FOOTER_LINKS = [
 
 export default function Layout({ children }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState(true);
   const [search, setSearch] = useState('');
   const [authenticated, setAuthenticated] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined') return undefined;
 
-    const savedTheme = localStorage.getItem('theme');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const shouldUseDark = savedTheme ? savedTheme === 'dark' : prefersDark;
-    setDarkMode(shouldUseDark);
-    setAuthenticated(Boolean(localStorage.getItem('token')));
-  }, [router.asPath]);
+    const syncTheme = () => {
+      const nextTheme = getStoredTheme();
+      setDarkMode(nextTheme === 'dark');
+      applyTheme(nextTheme);
+    };
+    const syncAuth = () => setAuthenticated(Boolean(window.localStorage.getItem('token')));
+    const handleThemeChange = (event) => {
+      const nextTheme = event?.detail?.theme || getStoredTheme();
+      setDarkMode(nextTheme === 'dark');
+      applyTheme(nextTheme);
+    };
+
+    syncTheme();
+    syncAuth();
+    window.addEventListener(THEME_CHANGE_EVENT, handleThemeChange);
+    window.addEventListener('storage', syncTheme);
+
+    return () => {
+      window.removeEventListener(THEME_CHANGE_EVENT, handleThemeChange);
+      window.removeEventListener('storage', syncTheme);
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    document.documentElement.classList.toggle('dark', darkMode);
-    localStorage.setItem('theme', darkMode ? 'dark' : 'light');
-    window.dispatchEvent(new CustomEvent('theme-change', { detail: { theme: darkMode ? 'dark' : 'light' } }));
+    setAuthenticated(Boolean(window.localStorage.getItem('token')));
+  }, [router.asPath]);
+
+  useEffect(() => {
+    persistTheme(darkMode ? 'dark' : 'light');
   }, [darkMode]);
 
   const navItems = useMemo(
