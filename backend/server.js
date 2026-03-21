@@ -168,6 +168,7 @@ app.get('/healthz', (_req, res) => {
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/books', require('./routes/bookRoutes'));
 app.use('/api/blog', require('./routes/blogRoutes'));
+app.use('/api/sitemap', require('./routes/sitemapRoutes'));
 app.use('/api/chapters', require('./routes/chapterRoutes'));
 app.use('/api/user', require('./routes/userRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
