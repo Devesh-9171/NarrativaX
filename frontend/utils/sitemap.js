@@ -105,12 +105,22 @@ async function fetchJsonWithRetry(requestPath) {
   throw new Error(`Unable to fetch runtime sitemap data: ${lastError?.message || 'Unknown error'}`);
 }
 
-function createUrlEntry({ loc, lastmod, alternates = [] }) {
-  const alternateXml = alternates
-    .map((alternate) => `<xhtml:link rel="alternate" hreflang="${xmlEscape(alternate.hreflang)}" href="${xmlEscape(alternate.href)}" />`)
-    .join('');
+function createUrlEntry({ loc, lastmod }) {
+  return [
+    '  <url>',
+    `    <loc>${xmlEscape(loc)}</loc>`,
+    `    <lastmod>${xmlEscape(lastmod)}</lastmod>`,
+    '  </url>'
+  ].join('\n');
+}
 
-  return `<url><loc>${xmlEscape(loc)}</loc><lastmod>${xmlEscape(lastmod)}</lastmod>${alternateXml}</url>`;
+function buildSitemapDocument(entries) {
+  return [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+    ...entries,
+    '</urlset>'
+  ].join('\n');
 }
 
 export async function buildSitemapXml() {
@@ -137,16 +147,10 @@ export async function buildSitemapXml() {
   }
 
   for (const variants of booksByGroupId.values()) {
-    const bookAlternates = variants.map((variant) => ({
-      hreflang: variant.language || 'en',
-      href: buildAbsoluteUrl(`/book/${variant.slug}`, variant.language)
-    }));
-
     for (const book of variants) {
       entries.push(createUrlEntry({
         loc: buildAbsoluteUrl(`/book/${book.slug}`, book.language),
-        lastmod: normalizeIsoDate(book.updatedAt, new Date(generatedAt)),
-        alternates: bookAlternates
+        lastmod: normalizeIsoDate(book.updatedAt, new Date(generatedAt))
       }));
     }
 
@@ -165,16 +169,10 @@ export async function buildSitemapXml() {
     }
 
     for (const chapterVariants of chaptersByNumber.values()) {
-      const chapterAlternates = chapterVariants.map((chapter) => ({
-        hreflang: chapter.language || 'en',
-        href: buildAbsoluteUrl(`/book/${chapter.bookSlug}/${chapter.slug}`, chapter.language)
-      }));
-
       for (const chapter of chapterVariants) {
         entries.push(createUrlEntry({
           loc: buildAbsoluteUrl(`/book/${chapter.bookSlug}/${chapter.slug}`, chapter.language),
-          lastmod: normalizeIsoDate(chapter.updatedAt, new Date(generatedAt)),
-          alternates: chapterAlternates
+          lastmod: normalizeIsoDate(chapter.updatedAt, new Date(generatedAt))
         }));
       }
     }
@@ -187,5 +185,5 @@ export async function buildSitemapXml() {
     }));
   }
 
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">${entries.join('')}</urlset>`;
+  return buildSitemapDocument(entries);
 }
