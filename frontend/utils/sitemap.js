@@ -143,14 +143,14 @@ function createUrlEntry({ loc, lastmod, alternates = [] }) {
 }
 
 function buildSitemapDocument(entries) {
-  const safeEntries = Array.isArray(entries) ? entries.filter((entry) => typeof entry === 'string' && entry.trim()) : [];
-  return [
-    XML_DECLARATION,
-    XML_URLSET_OPEN,
-    ...safeEntries,
-    XML_URLSET_CLOSE,
-    ''
-  ].join('\n');
+  const safeEntries = Array.isArray(entries)
+    ? entries
+        .filter((entry) => typeof entry === 'string')
+        .map((entry) => entry.trim())
+        .filter(Boolean)
+    : [];
+
+  return `${XML_DECLARATION}\n${XML_URLSET_OPEN}\n${safeEntries.join('\n')}\n${XML_URLSET_CLOSE}\n`;
 }
 
 function getGroupSharedSlug(variants) {
@@ -216,17 +216,37 @@ export function validateSitemapXml(xml) {
     throw new Error('Sitemap XML declaration is missing or invalid');
   }
 
-  if (!xml.includes(XML_URLSET_OPEN)) {
+  const trimmedXml = xml.trim();
+  const rootMatches = trimmedXml.match(/<urlset\b[^>]*>[\s\S]*<\/urlset>/g) || [];
+  if (rootMatches.length !== 1) {
+    throw new Error('Sitemap must contain a single <urlset> root element');
+  }
+
+  if (!trimmedXml.includes(XML_URLSET_OPEN)) {
     throw new Error('Sitemap root element or namespaces are invalid');
   }
 
-  if (!xml.trim().endsWith(XML_URLSET_CLOSE)) {
+  if (!trimmedXml.endsWith(XML_URLSET_CLOSE)) {
     throw new Error('Sitemap root element is not properly closed');
   }
 
-  const urlBlocks = xml.match(/<url>[\s\S]*?<\/url>/g) || [];
+  const xmlWithoutDeclaration = trimmedXml.slice(XML_DECLARATION.length).trim();
+  if (!xmlWithoutDeclaration.startsWith(XML_URLSET_OPEN)) {
+    throw new Error('Sitemap XML contains content before the root element');
+  }
+
+  const urlBlocks = trimmedXml.match(/<url>[\s\S]*?<\/url>/g) || [];
   if (!urlBlocks.length) {
     throw new Error('Sitemap must contain at least one URL entry');
+  }
+
+  const rootContent = trimmedXml
+    .slice(trimmedXml.indexOf(XML_URLSET_OPEN) + XML_URLSET_OPEN.length, trimmedXml.lastIndexOf(XML_URLSET_CLOSE))
+    .trim();
+  const reconstructedRootContent = urlBlocks.join('\n').trim();
+
+  if (rootContent !== reconstructedRootContent) {
+    throw new Error('Sitemap root contains unexpected content outside <url> nodes');
   }
 
   const seenLocs = new Set();
