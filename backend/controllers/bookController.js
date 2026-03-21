@@ -65,6 +65,76 @@ function selectPreferredBooks(books, preferredLanguage = 'en') {
   });
 }
 
+async function getPaginatedBookResults({
+  query = {},
+  sort,
+  page,
+  limit,
+  preferredLanguage,
+  projection
+}) {
+  const effectiveProjection = projection || {
+    title: 1,
+    slug: 1,
+    author: 1,
+    category: 1,
+    coverImage: 1,
+    rating: 1,
+    totalViews: 1,
+    language: 1,
+    groupId: 1,
+    updatedAt: 1
+  };
+  const groupKey = { $ifNull: ['$groupId', { $toString: '$_id' }] };
+  const priorityExpression = {
+    $switch: {
+      branches: [
+        { case: { $eq: ['$language', preferredLanguage] }, then: 2 },
+        { case: { $eq: ['$language', 'en'] }, then: 1 }
+      ],
+      default: 0
+    }
+  };
+
+  const results = await Book.aggregate([
+    { $match: query },
+    { $sort: { ...sort, _id: 1 } },
+    {
+      $addFields: {
+        groupKey,
+        languagePriority: priorityExpression
+      }
+    },
+    { $sort: { ...sort, languagePriority: -1, _id: 1 } },
+    {
+      $group: {
+        _id: '$groupKey',
+        doc: { $first: '$$ROOT' }
+      }
+    },
+    { $replaceRoot: { newRoot: '$doc' } },
+    { $sort: { ...sort, _id: 1 } },
+    {
+      $facet: {
+        data: [
+          { $skip: (page - 1) * limit },
+          { $limit: limit },
+          { $project: effectiveProjection }
+        ],
+        totalCount: [{ $count: 'count' }]
+      }
+    }
+  ]);
+
+  const payload = results[0] || { data: [], totalCount: [] };
+  const total = payload.totalCount[0]?.count || 0;
+
+  return {
+    books: payload.data,
+    total
+  };
+}
+
 async function getTranslations(groupId, selectedBookId) {
   const translations = await Book.find({ groupId })
     .sort({ language: 1 })
@@ -207,7 +277,7 @@ exports.getHomepage = asyncHandler(async (req, res) => {
 exports.getBooks = asyncHandler(async (req, res) => {
   const { search = '', category, sort = 'updatedAt', lang = DEFAULT_LANGUAGE } = req.query;
   const preferredLanguage = normalizeLanguage(lang, DEFAULT_LANGUAGE);
-  const { page, limit } = getPagination(req.query, { defaultLimit: 20, maxLimit: 100 });
+  const { page, limit } = getPagination(req.query, { defaultLimit: 12, maxLimit: 20 });
   const query = {};
 
   if (category) query.category = category;
@@ -223,15 +293,13 @@ exports.getBooks = asyncHandler(async (req, res) => {
     rating: { rating: -1 }
   };
 
-  const allBooks = await Book.find(query)
-    .sort(sortMap[sort] || sortMap.updatedAt)
-    .select('title slug author category coverImage description rating totalViews featured updatedAt language groupId')
-    .lean();
-
-  const dedupedBooks = selectPreferredBooks(allBooks, preferredLanguage);
-  const start = (page - 1) * limit;
-  const books = dedupedBooks.slice(start, start + limit);
-  const total = dedupedBooks.length;
+  const { books, total } = await getPaginatedBookResults({
+    query,
+    sort: sortMap[sort] || sortMap.updatedAt,
+    page,
+    limit,
+    preferredLanguage
+  });
 
   res.json({ success: true, data: books, pagination: buildPaginationMeta({ total, page, limit }) });
 });
@@ -281,19 +349,28 @@ exports.getBookBySlug = asyncHandler(async (req, res) => {
 });
 
 exports.getCategoryBooks = asyncHandler(async (req, res) => {
-  const { page, limit } = getPagination(req.query, { defaultLimit: 24, maxLimit: 100 });
+  const { page, limit } = getPagination(req.query, { defaultLimit: 12, maxLimit: 20 });
   const preferredLanguage = normalizeLanguage(req.query.lang, DEFAULT_LANGUAGE);
   const query = { category: req.params.slug };
 
-  const allBooks = await Book.find(query)
-    .sort({ totalViews: -1 })
-    .select('title slug author category coverImage rating totalViews language groupId')
-    .lean();
-
-  const dedupedBooks = selectPreferredBooks(allBooks, preferredLanguage);
-  const start = (page - 1) * limit;
-  const books = dedupedBooks.slice(start, start + limit);
-  const total = dedupedBooks.length;
+  const { books, total } = await getPaginatedBookResults({
+    query,
+    sort: { totalViews: -1, updatedAt: -1 },
+    page,
+    limit,
+    preferredLanguage,
+    projection: {
+      title: 1,
+      slug: 1,
+      author: 1,
+      category: 1,
+      coverImage: 1,
+      rating: 1,
+      totalViews: 1,
+      language: 1,
+      groupId: 1
+    }
+  });
 
   res.json({ data: books, pagination: buildPaginationMeta({ total, page, limit }) });
 });

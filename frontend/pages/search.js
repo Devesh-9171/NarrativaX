@@ -2,11 +2,14 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import Layout from '../components/Layout';
 import BookCard from '../components/BookCard';
+import PaginationNav from '../components/PaginationNav';
 import SeoHead from '../components/SeoHead';
 import api from '../utils/api';
 import { buildMeta } from '../utils/seo';
 
-export default function SearchPage({ query, books, isFallback }) {
+const BOOKS_PER_PAGE = 12;
+
+export default function SearchPage({ query, books, pagination, isFallback }) {
   const router = useRouter();
   const q = query || '';
 
@@ -29,8 +32,8 @@ export default function SearchPage({ query, books, isFallback }) {
         </p>
       )}
 
-      {q && <p className="mb-4 text-sm text-slate-600 dark:text-slate-300">Results for <strong>{q}</strong>: {books.length}</p>}
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      {q && <p className="mb-4 text-sm text-slate-600 dark:text-slate-300">Results for <strong>{q}</strong>: {pagination?.total || books.length}</p>}
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4 xl:grid-cols-6">
         {books.map((book) => <BookCard key={book._id} book={book} />)}
       </div>
       {q && books.length === 0 && (
@@ -43,6 +46,7 @@ export default function SearchPage({ query, books, isFallback }) {
           Start typing a title, author, or category in search.
         </div>
       )}
+      {q && <PaginationNav pagination={pagination} basePath="/search" limit={BOOKS_PER_PAGE} />}
       <div className="mt-6">
         <Link href="/" className="rounded border px-4 py-2">← Back to home</Link>
       </div>
@@ -54,13 +58,19 @@ export async function getServerSideProps({ query }) {
   const q = (query.q || '').toString().trim();
 
   if (!q) {
-    return { props: { query: '', books: [], isFallback: false } };
+    return { props: { query: '', books: [], pagination: null, isFallback: false } };
   }
 
   try {
-    const { data } = await api.get('/books', { params: { search: q, limit: 24 } });
-    return { props: { query: q, books: data.data || [], isFallback: false } };
+    const { data } = await api.get('/books', {
+      params: {
+        search: q,
+        page: query.page || 1,
+        limit: query.limit || BOOKS_PER_PAGE
+      }
+    });
+    return { props: { query: q, books: data.data || [], pagination: data.pagination || null, isFallback: false } };
   } catch (_error) {
-    return { props: { query: q, books: [], isFallback: true } };
+    return { props: { query: q, books: [], pagination: null, isFallback: true } };
   }
 }

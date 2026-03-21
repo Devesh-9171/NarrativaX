@@ -1,16 +1,19 @@
 import Link from 'next/link';
 import Layout from '../components/Layout';
 import BookCard from '../components/BookCard';
+import PaginationNav from '../components/PaginationNav';
 import SeoHead from '../components/SeoHead';
 import api from '../utils/api';
 import { buildMeta } from '../utils/seo';
 
-export default function Home({ data, categories, isFallback }) {
+const BOOKS_PER_PAGE = 12;
+
+export default function Home({ data, categories, latestBooks, latestBooksPagination, isFallback }) {
   const meta = buildMeta({
     title: 'ReadNovaX - Read trending novels online',
     description: 'Discover trending books, latest chapters, and immersive reading on ReadNovaX.',
     image: '/images/logo.svg',
-    path: '/'
+    path: latestBooksPagination?.page > 1 ? `/?page=${latestBooksPagination.page}&limit=${latestBooksPagination.limit}` : '/'
   });
 
   const animatedTitle = 'Welcome to ReadNovaX';
@@ -46,6 +49,33 @@ export default function Home({ data, categories, isFallback }) {
       <Section title="Featured Novels" books={data.featured} emptyMessage="Featured picks are loading in." />
       <Section title="Trending Books" books={data.trending} emptyMessage="Trending stories will show here soon." />
       <Section title="Popular Books" books={data.popular} emptyMessage="Popular books are on the way." />
+
+      <section className="mb-8">
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-2xl font-bold">Latest Books</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Fast, paginated browsing for the newest additions in the library.
+            </p>
+          </div>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Showing {latestBooks.length} of {latestBooksPagination?.total || latestBooks.length} books
+          </p>
+        </div>
+
+        {latestBooks.length > 0 ? (
+          <>
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4 xl:grid-cols-6">
+              {latestBooks.map((book, index) => <BookCard key={book._id} book={book} priority={index < 2 && (latestBooksPagination?.page || 1) === 1} />)}
+            </div>
+            <PaginationNav pagination={latestBooksPagination} basePath="/" limit={BOOKS_PER_PAGE} />
+          </>
+        ) : (
+          <div className="rounded-2xl border border-dashed border-slate-300 px-5 py-6 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+            Fresh books are loading in right now.
+          </div>
+        )}
+      </section>
 
       <section className="mb-8">
         <h2 className="mb-4 text-2xl font-bold">Latest Chapters</h2>
@@ -95,9 +125,14 @@ function Section({ title, books, emptyMessage }) {
   );
 }
 
-export async function getServerSideProps() {
+export async function getServerSideProps({ query }) {
+  const page = Number.parseInt(query.page, 10) > 0 ? Number.parseInt(query.page, 10) : 1;
+
   try {
-    const { data } = await api.get('/books/homepage');
+    const [{ data }, booksResponse] = await Promise.all([
+      api.get('/books/homepage'),
+      api.get('/books', { params: { page, limit: BOOKS_PER_PAGE } })
+    ]);
     const categorySet = new Set();
 
     for (const group of [data.featured, data.trending, data.popular]) {
@@ -106,12 +141,22 @@ export async function getServerSideProps() {
       }
     }
 
-    return { props: { data, categories: Array.from(categorySet), isFallback: false } };
+    return {
+      props: {
+        data,
+        categories: Array.from(categorySet),
+        latestBooks: booksResponse.data.data || [],
+        latestBooksPagination: booksResponse.data.pagination || null,
+        isFallback: false
+      }
+    };
   } catch (_error) {
     return {
       props: {
         data: { featured: [], trending: [], popular: [], latestChapters: [] },
         categories: [],
+        latestBooks: [],
+        latestBooksPagination: null,
         isFallback: true
       }
     };
