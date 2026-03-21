@@ -6,18 +6,35 @@ const LANGUAGE_LABELS = {
   hi: 'HI'
 };
 
+function getOptimizedCoverImage(src) {
+  if (!src) return '/images/logo.svg';
+
+  if (!src.includes('res.cloudinary.com')) {
+    return src;
+  }
+
+  if (/\/upload\/(?:[^/]*,)?f_auto,q_auto,w_300/.test(src)) {
+    return src;
+  }
+
+  return src.replace('/upload/', '/upload/f_auto,q_auto,w_300/');
+}
+
 export default function BookCard({ book, priority = false }) {
+  const coverImage = getOptimizedCoverImage(book.coverImage);
+
   return (
     <article className="overflow-hidden rounded-xl border bg-white shadow-sm transition hover:-translate-y-1 dark:border-slate-800 dark:bg-slate-900">
-      <div className="relative h-56 w-full">
+      <div className="relative aspect-[5/7] w-full overflow-hidden bg-slate-100 dark:bg-slate-800">
         <Image
-          src={book.coverImage}
+          src={coverImage}
           alt={book.title}
           fill
           className="object-cover"
           sizes="(max-width: 768px) 50vw, 25vw"
           loading={priority ? 'eager' : 'lazy'}
           priority={priority}
+          quality={75}
         />
       </div>
       <div className="space-y-2 p-4">
