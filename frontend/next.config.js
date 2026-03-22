@@ -1,7 +1,4 @@
 const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://readnovax.in').replace(/\/$/, '');
-const PRIMARY_HOST = 'www.readnovax.in';
-const LEGACY_HOST = 'readnovax.in';
-
 const SITEMAP_HEADERS = [
   {
     key: 'Content-Type',
@@ -26,21 +23,6 @@ const SITEMAP_HEADERS = [
 const nextConfig = {
   compress: false,
   poweredByHeader: false,
-  async redirects() {
-    return [
-      {
-        source: '/:path((?!sitemap\\.xml$|api/sitemap\\.xml$).*)',
-        has: [
-          {
-            type: 'host',
-            value: LEGACY_HOST
-          }
-        ],
-        destination: `https://${PRIMARY_HOST}/:path*`,
-        permanent: true
-      }
-    ];
-  },
   async rewrites() {
     return {
       beforeFiles: [
