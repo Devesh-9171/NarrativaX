@@ -2,6 +2,15 @@ const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://readnovax.in').re
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  compress: false,
+  async rewrites() {
+    return [
+      {
+        source: '/sitemap.xml',
+        destination: '/api/sitemap.xml'
+      }
+    ];
+  },
   env: {
     NEXT_PUBLIC_SITE_URL: SITE_URL
   },
