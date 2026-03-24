@@ -8,6 +8,7 @@ const { getPagination, buildPaginationMeta } = require('../utils/pagination');
 const { cache, cacheKey } = require('../utils/cache');
 const { DEFAULT_LANGUAGE, normalizeLanguage } = require('../utils/language');
 const { applySharedSlugToBooks, buildSharedBookSlug, syncGroupBookSlugs } = require('../utils/bookSlug');
+const { uploadImageBuffer, deleteImageByPublicId } = require('../utils/cloudinaryAssets');
 
 function computeTrendingScore(book) {
   return book.viewsLast24h * 3 + book.viewsLast7d * 2 + book.totalViews;
@@ -154,8 +155,8 @@ exports.createBook = asyncHandler(async (req, res) => {
   const normalizedAuthor = String(author || 'ReadNovaX Editorial').trim();
   const normalizedLanguage = normalizeLanguage(language);
 
-  if (!title || !category || !description || !coverImage) {
-    throw new AppError('title, category, description, and coverImage are required', 400);
+  if (!title || !category || !description || (!req.file && !coverImage)) {
+    throw new AppError('title, category, description, and cover image are required', 400);
   }
 
   if (shouldRequireExistingGroup(normalizedLanguage) && !groupId) {
@@ -168,13 +169,23 @@ exports.createBook = asyncHandler(async (req, res) => {
     throw new AppError('This language already exists for the selected book group', 409);
   }
 
+  let resolvedCoverImage = String(coverImage || '').trim();
+  let resolvedCoverImagePublicId = '';
+
+  if (req.file) {
+    const upload = await uploadImageBuffer({ file: req.file, folder: 'readnovax/books' });
+    resolvedCoverImage = upload.secureUrl;
+    resolvedCoverImagePublicId = upload.publicId;
+  }
+
   const slug = await buildSharedBookSlug({ groupId: nextGroupId, title, language: normalizedLanguage });
   const book = await Book.create({
     title: String(title).trim(),
     author: normalizedAuthor,
     category: String(category).trim(),
     description: String(description).trim(),
-    coverImage: String(coverImage).trim(),
+    coverImage: resolvedCoverImage,
+    coverImagePublicId: resolvedCoverImagePublicId,
     featured: Boolean(featured),
     slug,
     language: normalizedLanguage,
@@ -207,10 +218,17 @@ exports.updateBook = asyncHandler(async (req, res) => {
   book.author = String(author || book.author || 'ReadNovaX Editorial').trim();
   book.category = category ? String(category).trim() : book.category;
   book.description = description ? String(description).trim() : book.description;
-  book.coverImage = coverImage ? String(coverImage).trim() : book.coverImage;
+  if (coverImage) book.coverImage = String(coverImage).trim();
   book.language = nextLanguage;
   book.groupId = nextGroupId;
   if (typeof featured !== 'undefined') book.featured = Boolean(featured);
+
+  if (req.file) {
+    const upload = await uploadImageBuffer({ file: req.file, folder: 'readnovax/books' });
+    await deleteImageByPublicId(book.coverImagePublicId);
+    book.coverImage = upload.secureUrl;
+    book.coverImagePublicId = upload.publicId;
+  }
 
   await book.save();
   await Chapter.updateMany({ bookId: book._id }, { $set: { language: book.language } });
@@ -226,10 +244,14 @@ exports.updateBook = asyncHandler(async (req, res) => {
 });
 
 exports.deleteBook = asyncHandler(async (req, res) => {
-  const book = await Book.findById(req.params.id).select('_id');
+  const book = await Book.findById(req.params.id).select('_id coverImagePublicId');
   if (!book) throw new AppError('Book not found', 404);
 
-  await Promise.all([Chapter.deleteMany({ bookId: book._id }), Book.deleteOne({ _id: book._id })]);
+  await Promise.all([
+    Chapter.deleteMany({ bookId: book._id }),
+    Book.deleteOne({ _id: book._id }),
+    deleteImageByPublicId(book.coverImagePublicId)
+  ]);
   cache.flushAll();
 
   res.json({ success: true, message: 'Book deleted' });

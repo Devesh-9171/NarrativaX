@@ -10,11 +10,11 @@ const { cache } = require('../utils/cache');
 const { DEFAULT_LANGUAGE, normalizeLanguage } = require('../utils/language');
 const { applySharedSlugToBooks, buildSharedBookSlug, syncGroupBookSlugs } = require('../utils/bookSlug');
 const { sanitizeHtml } = require('../utils/html');
+const { uploadImageBuffer, deleteImageByPublicId } = require('../utils/cloudinaryAssets');
 
 function generateSlug(value) {
   return slugify(String(value || ''), { lower: true, strict: true, trim: true });
 }
-
 
 async function resolveGroupId(groupId) {
   if (!groupId) return crypto.randomUUID();
@@ -54,10 +54,23 @@ exports.createBook = asyncHandler(async (req, res) => {
     throw new AppError('Translated books must be linked to an existing translation group', 400);
   }
 
+  if (!req.file && !data.coverImage) {
+    throw new AppError('Book cover image is required', 400);
+  }
+
   const groupId = await resolveGroupId(data.groupId);
   const duplicateLanguage = await Book.findOne({ groupId, language }).lean();
   if (duplicateLanguage) {
     throw new AppError('This language already exists for the selected book group', 409);
+  }
+
+  let coverImage = data.coverImage;
+  let coverImagePublicId = data.coverImagePublicId;
+
+  if (req.file) {
+    const upload = await uploadImageBuffer({ file: req.file, folder: 'readnovax/books' });
+    coverImage = upload.secureUrl;
+    coverImagePublicId = upload.publicId;
   }
 
   const slug = await buildSharedBookSlug({ groupId, title: data.title, language });
@@ -66,7 +79,8 @@ exports.createBook = asyncHandler(async (req, res) => {
     language,
     groupId,
     slug,
-    coverImage: req.file ? `/uploads/${req.file.filename}` : data.coverImage
+    coverImage,
+    coverImagePublicId
   });
 
   await syncGroupBookSlugs(groupId, { title: data.title, language });
@@ -93,7 +107,13 @@ exports.updateBook = asyncHandler(async (req, res) => {
   data.slug = await buildSharedBookSlug({ groupId: nextGroupId, title: nextTitle, language: nextLanguage });
   data.language = nextLanguage;
   data.groupId = nextGroupId;
-  if (req.file) data.coverImage = `/uploads/${req.file.filename}`;
+
+  if (req.file) {
+    const upload = await uploadImageBuffer({ file: req.file, folder: 'readnovax/books' });
+    data.coverImage = upload.secureUrl;
+    data.coverImagePublicId = upload.publicId;
+    await deleteImageByPublicId(existingBook.coverImagePublicId);
+  }
 
   const book = await Book.findByIdAndUpdate(req.params.bookId, data, { new: true });
   await Chapter.updateMany({ bookId: book._id }, { $set: { language: book.language } });
@@ -111,11 +131,21 @@ exports.addChapter = asyncHandler(async (req, res) => {
   const book = await Book.findById(req.params.bookId).select('_id language');
   if (!book) throw new AppError('Book not found', 404);
 
+  let image;
+  let imagePublicId;
+  if (req.file) {
+    const upload = await uploadImageBuffer({ file: req.file, folder: 'readnovax/chapters' });
+    image = upload.secureUrl;
+    imagePublicId = upload.publicId;
+  }
+
   const chapter = await Chapter.create({
     ...req.body,
     bookId: book._id,
     language: book.language || DEFAULT_LANGUAGE,
-    slug: generateSlug(req.body.title || `chapter-${req.body.chapterNumber}`)
+    slug: generateSlug(req.body.title || `chapter-${req.body.chapterNumber}`),
+    image,
+    imagePublicId
   });
 
   cache.flushAll();
@@ -125,7 +155,7 @@ exports.addChapter = asyncHandler(async (req, res) => {
 exports.getBlogs = asyncHandler(async (_req, res) => {
   const posts = await BlogPost.find()
     .sort({ publishedAt: -1, createdAt: -1 })
-    .select('title slug description coverImage content contentHtml publishedAt updatedAt')
+    .select('title slug description coverImage coverImagePublicId content contentHtml publishedAt updatedAt')
     .lean();
 
   res.json({ success: true, data: posts });
@@ -134,17 +164,19 @@ exports.getBlogs = asyncHandler(async (_req, res) => {
 exports.createBlog = asyncHandler(async (req, res) => {
   const { title, description, coverImage, content, contentHtml } = req.body;
 
-  if (!title || !description || !coverImage || !(content || contentHtml)) {
-    throw new AppError('title, description, coverImage, and content are required', 400);
+  if (!title || !description || !req.file || !(content || contentHtml)) {
+    throw new AppError('title, description, cover image file, and content are required', 400);
   }
 
+  const upload = await uploadImageBuffer({ file: req.file, folder: 'readnovax/blogs' });
   const slug = await ensureUniqueBlogSlug(title);
   const sanitizedHtml = sanitizeHtml(contentHtml || content);
   const post = await BlogPost.create({
     title: String(title).trim(),
     slug,
     description: String(description).trim(),
-    coverImage: String(coverImage).trim(),
+    coverImage: upload.secureUrl,
+    coverImagePublicId: upload.publicId,
     content: String(content || '').trim(),
     contentHtml: sanitizedHtml,
     publishedAt: new Date()
@@ -165,6 +197,14 @@ exports.updateBlog = asyncHandler(async (req, res) => {
   post.slug = await ensureUniqueBlogSlug(nextTitle, post._id);
   if (description) post.description = String(description).trim();
   if (coverImage) post.coverImage = String(coverImage).trim();
+
+  if (req.file) {
+    const upload = await uploadImageBuffer({ file: req.file, folder: 'readnovax/blogs' });
+    await deleteImageByPublicId(post.coverImagePublicId);
+    post.coverImage = upload.secureUrl;
+    post.coverImagePublicId = upload.publicId;
+  }
+
   if (typeof content !== 'undefined') post.content = String(content).trim();
   if (typeof contentHtml !== 'undefined' || typeof content !== 'undefined') {
     post.contentHtml = sanitizeHtml(contentHtml || content);
@@ -178,8 +218,10 @@ exports.updateBlog = asyncHandler(async (req, res) => {
 });
 
 exports.deleteBlog = asyncHandler(async (req, res) => {
-  const post = await BlogPost.findByIdAndDelete(req.params.blogId).select('_id');
+  const post = await BlogPost.findByIdAndDelete(req.params.blogId).select('_id coverImagePublicId');
   if (!post) throw new AppError('Blog post not found', 404);
+
+  await deleteImageByPublicId(post.coverImagePublicId);
 
   cache.flushAll();
   res.json({ success: true, message: 'Blog post deleted' });

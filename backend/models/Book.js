@@ -13,6 +13,7 @@ const bookSchema = new mongoose.Schema(
     },
     description: { type: String, required: true },
     coverImage: { type: String, required: true },
+    coverImagePublicId: { type: String, trim: true },
     language: { type: String, enum: SUPPORTED_LANGUAGES, default: DEFAULT_LANGUAGE, index: true },
     groupId: { type: String, trim: true, index: true },
     rating: { type: Number, default: 0, min: 0, max: 5 },

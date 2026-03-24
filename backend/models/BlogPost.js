@@ -6,6 +6,7 @@ const blogPostSchema = new mongoose.Schema(
     slug: { type: String, required: true, unique: true, index: true },
     description: { type: String, required: true, trim: true, maxlength: 320 },
     coverImage: { type: String, required: true, trim: true },
+    coverImagePublicId: { type: String, trim: true },
     content: { type: String, required: true },
     contentHtml: { type: String, default: '' },
     publishedAt: { type: Date, default: Date.now, index: true }

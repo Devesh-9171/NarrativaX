@@ -24,6 +24,8 @@ const initialBookForm = {
   description: '',
   category: CATEGORY_OPTIONS[0],
   coverImage: '',
+  coverImageFile: null,
+  uploadedCoverImage: '',
   language: 'en',
   groupId: ''
 };
@@ -32,13 +34,16 @@ const initialChapterForm = {
   bookId: '',
   chapterNumber: '',
   title: '',
-  content: ''
+  content: '',
+  imageFile: null
 };
 
 const initialBlogForm = {
   title: '',
   description: '',
   coverImage: '',
+  coverImageFile: null,
+  uploadedCoverImage: '',
   contentHtml: '<p></p>'
 };
 
@@ -196,6 +201,8 @@ export default function AdminPage() {
   const [savingBlogEdit, setSavingBlogEdit] = useState(false);
   const [deletingBookId, setDeletingBookId] = useState('');
   const [deletingBlogId, setDeletingBlogId] = useState('');
+  const [editBookImageFile, setEditBookImageFile] = useState(null);
+  const [editBlogImageFile, setEditBlogImageFile] = useState(null);
 
   useEffect(() => {
     setIsReady(true);
@@ -274,18 +281,23 @@ export default function AdminPage() {
         throw new Error('Select an existing translation group before creating a translated book.');
       }
 
-      await api.post('/books', {
-        title: bookForm.title.trim(),
-        author: bookForm.author.trim(),
-        description: bookForm.description.trim(),
-        category: bookForm.category.trim(),
-        coverImage: bookForm.coverImage.trim(),
-        language: bookForm.language,
-        groupId: bookForm.groupId || undefined
-      }, { headers });
+      if (!bookForm.coverImageFile) {
+        throw new Error('Please select a cover image file before saving the book.');
+      }
+
+      const payload = new FormData();
+      payload.append('title', bookForm.title.trim());
+      payload.append('author', bookForm.author.trim());
+      payload.append('description', bookForm.description.trim());
+      payload.append('category', bookForm.category.trim());
+      payload.append('language', bookForm.language);
+      payload.append('coverImage', bookForm.coverImageFile);
+      if (bookForm.groupId) payload.append('groupId', bookForm.groupId);
+
+      const response = await api.post('/books', payload, { headers });
 
       setSuccessMessage('Book saved successfully.');
-      setBookForm(initialBookForm);
+      setBookForm((current) => ({ ...initialBookForm, uploadedCoverImage: response.data?.book?.coverImage || '' }));
       await loadDashboard();
     } catch (error) {
       setFormError(error.message || 'Failed to save the book.');
@@ -302,12 +314,14 @@ export default function AdminPage() {
 
     try {
       setSubmittingChapter(true);
-      await api.post('/chapters', {
-        bookId: chapterForm.bookId,
-        chapterNumber: Number(chapterForm.chapterNumber),
-        title: chapterForm.title.trim(),
-        content: chapterForm.content.trim()
-      }, { headers });
+      const payload = new FormData();
+      payload.append('bookId', chapterForm.bookId);
+      payload.append('chapterNumber', String(Number(chapterForm.chapterNumber)));
+      payload.append('title', chapterForm.title.trim());
+      payload.append('content', chapterForm.content.trim());
+      if (chapterForm.imageFile) payload.append('image', chapterForm.imageFile);
+
+      await api.post('/chapters', payload, { headers });
 
       setSuccessMessage('Chapter added successfully.');
       setChapterForm((current) => ({ ...initialChapterForm, bookId: current.bookId }));
@@ -327,16 +341,21 @@ export default function AdminPage() {
 
     try {
       setSubmittingBlog(true);
-      await api.post('/admin/blogs', {
-        title: blogForm.title.trim(),
-        description: blogForm.description.trim(),
-        coverImage: blogForm.coverImage.trim(),
-        contentHtml: blogForm.contentHtml,
-        content: extractPlainText(blogForm.contentHtml)
-      }, { headers });
+      if (!blogForm.coverImageFile) {
+        throw new Error('Please select a cover image file before publishing.');
+      }
+
+      const payload = new FormData();
+      payload.append('title', blogForm.title.trim());
+      payload.append('description', blogForm.description.trim());
+      payload.append('contentHtml', blogForm.contentHtml);
+      payload.append('content', extractPlainText(blogForm.contentHtml));
+      payload.append('coverImage', blogForm.coverImageFile);
+
+      const response = await api.post('/admin/blogs', payload, { headers });
 
       setSuccessMessage('Blog published successfully.');
-      setBlogForm(initialBlogForm);
+      setBlogForm((current) => ({ ...initialBlogForm, uploadedCoverImage: response.data?.post?.coverImage || '' }));
       await loadDashboard();
     } catch (error) {
       setFormError(error.message || 'Failed to publish the blog.');
@@ -348,6 +367,7 @@ export default function AdminPage() {
   const startEditingBook = (book) => {
     resetMessages();
     setEditingBookId(book._id);
+    setEditBookImageFile(null);
     setEditForm({
       title: book.title || '',
       author: book.author || '',
@@ -362,6 +382,7 @@ export default function AdminPage() {
   const startEditingBlog = (post) => {
     resetMessages();
     setEditingBlogId(post._id);
+    setEditBlogImageFile(null);
     setEditBlogForm({
       title: post.title || '',
       description: post.description || '',
@@ -377,16 +398,19 @@ export default function AdminPage() {
 
     try {
       setSavingEdit(true);
-      await api.put(`/books/${bookId}`, {
-        title: editForm.title.trim(),
-        author: editForm.author.trim(),
-        description: editForm.description.trim(),
-        category: editForm.category.trim(),
-        coverImage: editForm.coverImage.trim(),
-        language: editForm.language,
-        groupId: editForm.groupId || undefined
-      }, { headers });
+      const payload = new FormData();
+      payload.append('title', editForm.title.trim());
+      payload.append('author', editForm.author.trim());
+      payload.append('description', editForm.description.trim());
+      payload.append('category', editForm.category.trim());
+      payload.append('language', editForm.language);
+      if (editForm.groupId) payload.append('groupId', editForm.groupId);
+      if (editForm.coverImage) payload.append('coverImage', editForm.coverImage.trim());
+      if (editBookImageFile) payload.append('coverImage', editBookImageFile);
+
+      await api.put(`/books/${bookId}`, payload, { headers });
       setEditingBookId('');
+      setEditBookImageFile(null);
       setSuccessMessage('Book updated successfully.');
       await loadDashboard();
     } catch (error) {
@@ -403,14 +427,17 @@ export default function AdminPage() {
 
     try {
       setSavingBlogEdit(true);
-      await api.put(`/admin/blogs/${blogId}`, {
-        title: editBlogForm.title.trim(),
-        description: editBlogForm.description.trim(),
-        coverImage: editBlogForm.coverImage.trim(),
-        contentHtml: editBlogForm.contentHtml,
-        content: extractPlainText(editBlogForm.contentHtml)
-      }, { headers });
+      const payload = new FormData();
+      payload.append('title', editBlogForm.title.trim());
+      payload.append('description', editBlogForm.description.trim());
+      payload.append('contentHtml', editBlogForm.contentHtml);
+      payload.append('content', extractPlainText(editBlogForm.contentHtml));
+      if (editBlogForm.coverImage) payload.append('coverImage', editBlogForm.coverImage.trim());
+      if (editBlogImageFile) payload.append('coverImage', editBlogImageFile);
+
+      await api.put(`/admin/blogs/${blogId}`, payload, { headers });
       setEditingBlogId('');
+      setEditBlogImageFile(null);
       setSuccessMessage('Blog updated successfully.');
       await loadDashboard();
     } catch (error) {
@@ -512,7 +539,8 @@ export default function AdminPage() {
                 Non-English books must be attached to an existing translation group so chapters can be added to every language variant.
               </p>
             ) : null}
-            <input className={INPUT_CLASS} type="url" value={bookForm.coverImage} onChange={(event) => setBookForm((current) => ({ ...current, coverImage: event.target.value }))} placeholder="Cover image URL" required />
+            <input className={INPUT_CLASS} type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => setBookForm((current) => ({ ...current, coverImageFile: event.target.files?.[0] || null }))} required />
+            {bookForm.uploadedCoverImage ? <img src={bookForm.uploadedCoverImage} alt="Uploaded book cover" className="h-36 w-28 rounded-xl object-cover" /> : null}
             <button type="submit" disabled={submittingBook || (requiresExistingGroup && translationGroupOptions.length === 0)} className="w-full rounded-xl bg-brand-600 px-4 py-2.5 text-white transition hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-60">
               {submittingBook ? 'Saving book...' : 'Save Book'}
             </button>
@@ -536,6 +564,7 @@ export default function AdminPage() {
               Generated slug: <span className="font-semibold text-slate-900 dark:text-white">{chapterSlugPreview || 'chapter-preview'}</span>
             </div>
             <textarea className={`${TEXTAREA_CLASS} min-h-[240px]`} value={chapterForm.content} onChange={(event) => setChapterForm((current) => ({ ...current, content: event.target.value }))} placeholder="Write chapter content here" required />
+            <input className={INPUT_CLASS} type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => setChapterForm((current) => ({ ...current, imageFile: event.target.files?.[0] || null }))} />
             <button type="submit" disabled={submittingChapter || bookVariantOptions.length === 0} className="w-full rounded-xl bg-brand-600 px-4 py-2.5 text-white transition hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-60">
               {submittingChapter ? 'Saving chapter...' : 'Save Chapter'}
             </button>
@@ -553,7 +582,8 @@ export default function AdminPage() {
           <div className="space-y-4">
             <input className={INPUT_CLASS} type="text" value={blogForm.title} onChange={(event) => setBlogForm((current) => ({ ...current, title: event.target.value }))} placeholder="Blog title" required />
             <textarea className={`${TEXTAREA_CLASS} min-h-[110px]`} value={blogForm.description} onChange={(event) => setBlogForm((current) => ({ ...current, description: event.target.value }))} placeholder="SEO description" required />
-            <input className={INPUT_CLASS} type="url" value={blogForm.coverImage} onChange={(event) => setBlogForm((current) => ({ ...current, coverImage: event.target.value }))} placeholder="Cover image URL" required />
+            <input className={INPUT_CLASS} type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => setBlogForm((current) => ({ ...current, coverImageFile: event.target.files?.[0] || null }))} required />
+            {blogForm.uploadedCoverImage ? <img src={blogForm.uploadedCoverImage} alt="Uploaded blog cover" className="h-40 w-full rounded-xl object-cover" /> : null}
             <RichTextEditor label="Content" value={blogForm.contentHtml} onChange={(value) => setBlogForm((current) => ({ ...current, contentHtml: value }))} placeholder="Write your article, then use 🔗 to add internal links like /blog/my-post or external URLs." minHeight={320} />
             <button type="submit" disabled={submittingBlog} className="w-full rounded-xl bg-brand-600 px-4 py-2.5 text-white transition hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-60">
               {submittingBlog ? 'Publishing...' : 'Publish Blog'}
@@ -618,6 +648,7 @@ export default function AdminPage() {
                             {translationGroupOptions.map((group) => <option key={group.value} value={group.value}>{group.label}</option>)}
                           </select>
                           <input className={INPUT_CLASS} type="url" value={editForm.coverImage} onChange={(event) => setEditForm((current) => ({ ...current, coverImage: event.target.value }))} />
+                          <input className={INPUT_CLASS} type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => setEditBookImageFile(event.target.files?.[0] || null)} />
                           <div className="flex flex-wrap gap-2">
                             <button type="button" onClick={() => saveBookEdit(book._id)} disabled={savingEdit} className="rounded-full bg-brand-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-500 disabled:opacity-60">{savingEdit ? 'Saving...' : 'Save'}</button>
                             <button type="button" onClick={() => setEditingBookId('')} className="rounded-full border border-slate-300 px-4 py-2 text-sm font-medium dark:border-slate-700">Cancel</button>
@@ -678,6 +709,7 @@ export default function AdminPage() {
                         <input className={INPUT_CLASS} type="text" value={editBlogForm.title} onChange={(event) => setEditBlogForm((current) => ({ ...current, title: event.target.value }))} />
                         <textarea className={`${TEXTAREA_CLASS} min-h-[110px]`} value={editBlogForm.description} onChange={(event) => setEditBlogForm((current) => ({ ...current, description: event.target.value }))} />
                         <input className={INPUT_CLASS} type="url" value={editBlogForm.coverImage} onChange={(event) => setEditBlogForm((current) => ({ ...current, coverImage: event.target.value }))} />
+                        <input className={INPUT_CLASS} type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => setEditBlogImageFile(event.target.files?.[0] || null)} />
                         <div className="rounded-2xl border border-dashed border-slate-300 px-4 py-3 text-sm text-slate-600 dark:border-slate-700 dark:text-slate-300">
                           Generated slug: <span className="font-semibold text-slate-900 dark:text-white">/blog/{editBlogSlugPreview || 'updated-blog-post'}</span>
                         </div>

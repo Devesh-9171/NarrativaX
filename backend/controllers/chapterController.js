@@ -6,6 +6,7 @@ const AppError = require('../utils/AppError');
 const { cache, cacheKey } = require('../utils/cache');
 const { DEFAULT_LANGUAGE, normalizeLanguage } = require('../utils/language');
 const { applySharedSlugToBooks } = require('../utils/bookSlug');
+const { uploadImageBuffer } = require('../utils/cloudinaryAssets');
 
 exports.createChapter = asyncHandler(async (req, res) => {
   const { bookId, chapterNumber, title, content } = req.body;
@@ -26,13 +27,24 @@ exports.createChapter = asyncHandler(async (req, res) => {
     slug = `${baseSlug}-${suffix}`;
   }
 
+  let image;
+  let imagePublicId;
+
+  if (req.file) {
+    const upload = await uploadImageBuffer({ file: req.file, folder: 'readnovax/chapters' });
+    image = upload.secureUrl;
+    imagePublicId = upload.publicId;
+  }
+
   const chapter = await Chapter.create({
     bookId: book._id,
     language: book.language || DEFAULT_LANGUAGE,
     chapterNumber: Number(chapterNumber),
     title: String(title).trim(),
     content: String(content).trim(),
-    slug
+    slug,
+    image,
+    imagePublicId
   });
 
   cache.flushAll();

@@ -9,6 +9,8 @@ const chapterSchema = new mongoose.Schema(
     slug: { type: String, required: true, index: true },
     chapterNumber: { type: Number, required: true },
     content: { type: String, required: true },
+    image: { type: String, trim: true },
+    imagePublicId: { type: String, trim: true },
     views: { type: Number, default: 0 }
   },
   { timestamps: true }

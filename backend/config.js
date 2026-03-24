@@ -36,6 +36,9 @@ function validateRequiredEnv() {
 
   if (!toOptionalTrimmedString(process.env.MONGO_URI)) missing.push('MONGO_URI');
   if (!toOptionalTrimmedString(process.env.JWT_SECRET)) missing.push('JWT_SECRET');
+  if (!toOptionalTrimmedString(process.env.CLOUDINARY_CLOUD_NAME)) missing.push('CLOUDINARY_CLOUD_NAME');
+  if (!toOptionalTrimmedString(process.env.CLOUDINARY_API_KEY)) missing.push('CLOUDINARY_API_KEY');
+  if (!toOptionalTrimmedString(process.env.CLOUDINARY_API_SECRET)) missing.push('CLOUDINARY_API_SECRET');
 
   return missing;
 }
@@ -49,7 +52,10 @@ const config = {
   rateLimitWindowMs: toNumber(process.env.RATE_LIMIT_WINDOW_MS, 15 * 60 * 1000),
   rateLimitMaxRequests: toNumber(process.env.RATE_LIMIT_MAX_REQUESTS, 300),
   cacheTtlSeconds: toNumber(process.env.CACHE_TTL_SECONDS, 60),
-  dbConnectRetryMs: toNumber(process.env.DB_CONNECT_RETRY_MS, 5000)
+  dbConnectRetryMs: toNumber(process.env.DB_CONNECT_RETRY_MS, 5000),
+  cloudinaryCloudName: toOptionalTrimmedString(process.env.CLOUDINARY_CLOUD_NAME),
+  cloudinaryApiKey: toOptionalTrimmedString(process.env.CLOUDINARY_API_KEY),
+  cloudinaryApiSecret: toOptionalTrimmedString(process.env.CLOUDINARY_API_SECRET)
 };
 
 config.hasConfiguredCorsOrigins = config.allowedOrigins.length > 0;
