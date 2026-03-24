@@ -20,6 +20,7 @@ const userSchema = new mongoose.Schema(
     isEmailVerified: { type: Boolean, default: false, index: true },
     emailVerificationOtp: { type: String, select: false },
     emailVerificationOtpExpiresAt: { type: Date, select: false },
+    emailVerificationOtpLastSentAt: { type: Date, select: false },
     role: { type: String, enum: ['user', 'author', 'admin'], default: 'user' },
     authorStatus: { type: String, enum: ['none', 'pending', 'approved', 'rejected'], default: 'none', index: true },
     authorProfile: { type: authorProfileSchema, default: () => ({}) },

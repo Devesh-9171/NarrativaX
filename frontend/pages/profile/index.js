@@ -26,6 +26,7 @@ export default function ProfilePage() {
   const [otp, setOtp] = useState('');
   const [verifyingOtp, setVerifyingOtp] = useState(false);
   const [resendingOtp, setResendingOtp] = useState(false);
+  const [otpCooldown, setOtpCooldown] = useState(0);
   const [showAuthorForm, setShowAuthorForm] = useState(false);
   const router = useRouter();
   const { user, token, refreshUser, clearAuthState, setToken } = useAuth();
@@ -57,6 +58,13 @@ export default function ProfilePage() {
   useEffect(() => {
     loadProfile();
   }, [loadProfile]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setOtpCooldown((current) => (current > 0 ? current - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const handleLogout = async () => {
     await clearAuthState();
@@ -171,15 +179,16 @@ export default function ProfilePage() {
                 </button>
                 <button
                   type="button"
-                  disabled={resendingOtp}
+                  disabled={resendingOtp || otpCooldown > 0}
                   className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold disabled:opacity-60 dark:border-slate-700"
                   onClick={async () => {
                     setError('');
                     setSuccess('');
                     try {
                       setResendingOtp(true);
-                      await api.post('/auth/resend-otp', { email: me.email });
-                      setSuccess('A new OTP has been sent to your email.');
+                      const response = await api.post('/auth/resend-otp', { email: me.email });
+                      setSuccess(response?.data?.message || 'OTP sent to your email.');
+                      setOtpCooldown(Number(response?.data?.cooldownSeconds || 45));
                     } catch (requestError) {
                       setError(requestError.message || 'Could not resend OTP.');
                     } finally {
@@ -187,7 +196,7 @@ export default function ProfilePage() {
                     }
                   }}
                 >
-                  {resendingOtp ? 'Sending...' : 'Resend OTP'}
+                  {resendingOtp ? 'Sending...' : otpCooldown > 0 ? `Resend OTP in ${otpCooldown}s` : 'Resend OTP'}
                 </button>
               </div>
             ) : null}

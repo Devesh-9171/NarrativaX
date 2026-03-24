@@ -14,6 +14,9 @@ function getTransporter() {
       host: config.smtpHost,
       port: config.smtpPort,
       secure: config.smtpSecure,
+      connectionTimeout: config.smtpConnectionTimeoutMs,
+      greetingTimeout: config.smtpGreetingTimeoutMs,
+      socketTimeout: config.smtpSocketTimeoutMs,
       auth: {
         user: config.smtpUser,
         pass: config.smtpPass

@@ -174,6 +174,9 @@ const server = app.listen(config.port, () => {
   console.log(`Backend running on port ${config.port}`);
   connectDatabaseWithRetry();
 });
+server.requestTimeout = 120000;
+server.headersTimeout = 125000;
+server.keepAliveTimeout = 65000;
 
 setupProcessHandlers(server);
 

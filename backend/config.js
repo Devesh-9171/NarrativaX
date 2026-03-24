@@ -61,7 +61,11 @@ const config = {
   smtpSecure: String(process.env.SMTP_SECURE || '').toLowerCase() === 'true',
   smtpUser: toOptionalTrimmedString(process.env.SMTP_USER),
   smtpPass: toOptionalTrimmedString(process.env.SMTP_PASS),
-  smtpFrom: toOptionalTrimmedString(process.env.SMTP_FROM) || 'no-reply@readnovax.local'
+  smtpFrom: toOptionalTrimmedString(process.env.SMTP_FROM) || 'no-reply@readnovax.local',
+  smtpConnectionTimeoutMs: toNumber(process.env.SMTP_CONNECTION_TIMEOUT_MS, 15000),
+  smtpGreetingTimeoutMs: toNumber(process.env.SMTP_GREETING_TIMEOUT_MS, 15000),
+  smtpSocketTimeoutMs: toNumber(process.env.SMTP_SOCKET_TIMEOUT_MS, 30000),
+  otpResendCooldownSeconds: toNumber(process.env.OTP_RESEND_COOLDOWN_SECONDS, 45)
 };
 
 config.hasConfiguredCorsOrigins = config.allowedOrigins.length > 0;
