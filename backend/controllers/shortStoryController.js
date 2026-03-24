@@ -23,8 +23,8 @@ exports.createShortStory = asyncHandler(async (req, res) => {
   const normalizedTags = Array.from(new Set(parseTags(tags)));
   if (normalizedTags.length > 3) throw new AppError('Short stories support max 3 tags', 400);
 
-  const author = await User.findById(req.user.id).select('authorStatus role').lean();
-  if (!author || !['author', 'admin'].includes(author.role) || (author.role === 'author' && author.authorStatus !== 'approved')) {
+  const author = await User.findById(req.user.id).select('name authorStatus role').lean();
+  if (!author || author.role !== 'author' || author.authorStatus !== 'approved') {
     throw new AppError('Only approved authors can upload short stories', 403);
   }
 
@@ -44,8 +44,9 @@ exports.createShortStory = asyncHandler(async (req, res) => {
     description: String(description).trim(),
     content: String(content).trim(),
     tags: normalizedTags,
-    authorId: req.user.id,
-    status: req.user.role === 'admin' ? 'published' : 'review',
+    authorId: req.user._id || req.user.id,
+    authorName: String(author.name || req.user?.name || 'ReadNovaX Editorial').trim(),
+    status: 'review',
     wordCount: words,
     readingTime: Math.max(1, Math.ceil(words / 220))
   });

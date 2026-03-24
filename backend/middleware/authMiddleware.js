@@ -12,7 +12,7 @@ function authMiddleware(req, _res, next) {
 
   try {
     const payload = jwt.verify(token, config.jwtSecret);
-    req.user = { id: payload.id, role: payload.role, name: payload.name };
+    req.user = { id: payload.id, _id: payload.id, role: payload.role, name: payload.name };
     return next();
   } catch (_error) {
     return next(new AppError('Unauthorized: invalid token', 401));
@@ -27,13 +27,26 @@ function requireAdmin(req, _res, next) {
   return next();
 }
 
-function requireRoles(roles = []) {
+function requireRole(...roles) {
   return (req, _res, next) => {
-    if (req.user?.role !== 'admin' && !roles.includes(req.user?.role)) {
+    if (!req.user) {
+      return next(new AppError('Unauthorized', 401));
+    }
+
+    if (req.user.role === 'admin') {
+      return next();
+    }
+
+    if (!roles.includes(req.user.role)) {
       return next(new AppError('Forbidden', 403));
     }
+
     return next();
   };
 }
 
-module.exports = { authMiddleware, requireAdmin, requireRoles };
+function requireRoles(roles = []) {
+  return requireRole(...roles);
+}
+
+module.exports = { authMiddleware, requireAdmin, requireRole, requireRoles };

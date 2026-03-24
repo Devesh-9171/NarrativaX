@@ -7,7 +7,8 @@
     "dev": "nodemon server.js",
     "start": "node server.js",
     "build": "echo 'Backend build step complete'",
-    "seed": "node scripts/seed.js"
+    "seed": "node scripts/seed.js",
+    "migrate:book-languages": "node scripts/migrateBookLanguages.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

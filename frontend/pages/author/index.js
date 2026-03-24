@@ -1,36 +1,32 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 import Layout from '../../components/Layout';
 import api from '../../utils/api';
+import { useAuth } from '../../context/AuthContext';
 
 const INPUT_CLASS = 'w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 shadow-sm outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:border-sky-400 dark:focus:ring-sky-400/10';
 const CARD_CLASS = 'rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-950';
-
-function getToken() {
-  if (typeof window === 'undefined') return '';
-  return localStorage.getItem('token') || '';
-}
 
 function parseTags(text) {
   return String(text || '').split(',').map((tag) => tag.replace(/^#/, '').trim()).filter(Boolean);
 }
 
 export default function AuthorDashboardPage() {
-  const [role, setRole] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [books, setBooks] = useState([]);
 
-  const [bookForm, setBookForm] = useState({ title: '', description: '', category: 'action', tags: '', coverImageFile: null });
+  const [bookForm, setBookForm] = useState({ title: '', description: '', category: 'action', language: 'english', tags: '', coverImageFile: null });
   const [chapterForm, setChapterForm] = useState({ bookId: '', chapterNumber: '', title: '', content: '' });
   const [storyForm, setStoryForm] = useState({ title: '', description: '', content: '', tags: '', coverImageFile: null });
   const [submitting, setSubmitting] = useState(false);
 
-  const headers = useMemo(() => {
-    const token = getToken();
-    return token ? { Authorization: `Bearer ${token}` } : null;
-  }, []);
+  const { user, token, refreshUser } = useAuth();
+  const router = useRouter();
+
+  const headers = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : null), [token]);
 
   const loadData = useCallback(async () => {
     if (!headers) {
@@ -40,11 +36,8 @@ export default function AuthorDashboardPage() {
 
     setLoading(true);
     try {
-      const [meResponse, booksResponse] = await Promise.all([
-        api.get('/user/me', { headers }),
-        api.get('/user/my-content', { headers })
-      ]);
-      setRole(meResponse.data?.role || '');
+      await refreshUser();
+      const booksResponse = await api.get('/user/my-content', { headers });
       setBooks(booksResponse.data?.data || []);
       setChapterForm((current) => ({ ...current, bookId: current.bookId || booksResponse.data?.data?.[0]?._id || '' }));
     } catch (requestError) {
@@ -52,12 +45,18 @@ export default function AuthorDashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [headers]);
+  }, [headers, refreshUser]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
+
+  useEffect(() => {
+    if (user?.role === 'admin') {
+      router.replace('/admin');
+    }
+  }, [router, user?.role]);
   const submitBook = async (event) => {
     event.preventDefault();
     if (!headers) return;
@@ -76,11 +75,12 @@ export default function AuthorDashboardPage() {
       payload.append('title', bookForm.title.trim());
       payload.append('description', bookForm.description.trim());
       payload.append('category', bookForm.category.trim());
+      payload.append('language', bookForm.language);
       payload.append('tags', tags.join(','));
       payload.append('coverImage', bookForm.coverImageFile);
       await api.post('/books', payload, { headers });
       setSuccess('Book submitted for review.');
-      setBookForm({ title: '', description: '', category: 'action', tags: '', coverImageFile: null });
+      setBookForm({ title: '', description: '', category: 'action', language: 'english', tags: '', coverImageFile: null });
       await loadData();
     } catch (requestError) {
       setError(requestError.message || 'Could not save book.');
@@ -143,7 +143,7 @@ export default function AuthorDashboardPage() {
   };
 
   if (loading) return <Layout><p>Loading author dashboard...</p></Layout>;
-  if (role !== 'author' && role !== 'admin') {
+  if (user?.role !== 'author') {
     return <Layout><div className={CARD_CLASS}><p className="font-semibold">Author access required.</p><Link href="/profile" className="mt-3 inline-block text-brand-600">Back to profile</Link></div></Layout>;
   }
 
@@ -159,6 +159,10 @@ export default function AuthorDashboardPage() {
           <div className="mt-3 space-y-3">
             <input className={INPUT_CLASS} placeholder="Title" required value={bookForm.title} onChange={(e) => setBookForm((c) => ({ ...c, title: e.target.value }))} />
             <textarea className={`${INPUT_CLASS} min-h-[110px]`} placeholder="Description" required value={bookForm.description} onChange={(e) => setBookForm((c) => ({ ...c, description: e.target.value }))} />
+            <select className={INPUT_CLASS} required value={bookForm.language} onChange={(e) => setBookForm((c) => ({ ...c, language: e.target.value }))}>
+              <option value="english">English</option>
+              <option value="hindi">Hindi</option>
+            </select>
             <input className={INPUT_CLASS} placeholder="Tags (comma separated, max 10)" value={bookForm.tags} onChange={(e) => setBookForm((c) => ({ ...c, tags: e.target.value }))} />
             <input className={INPUT_CLASS} type="file" accept="image/*" required onChange={(e) => setBookForm((c) => ({ ...c, coverImageFile: e.target.files?.[0] || null }))} />
             <button disabled={submitting} className="w-full rounded-xl bg-brand-600 px-4 py-2 text-white disabled:opacity-60">{submitting ? 'Saving...' : 'Save Book'}</button>

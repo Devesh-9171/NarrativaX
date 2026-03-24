@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+import { useAuth } from '../context/AuthContext';
 import { useRouter } from 'next/router';
 import { useTheme } from '../context/ThemeContext';
 
@@ -17,27 +18,16 @@ const FOOTER_LINKS = [
 export default function Layout({ children }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const [authenticated, setAuthenticated] = useState(false);
   const { isDark, toggleTheme } = useTheme();
+  const { user, token, clearAuthState } = useAuth();
   const router = useRouter();
+  const authenticated = Boolean(token);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return undefined;
-
-    const syncAuth = () => setAuthenticated(Boolean(window.localStorage.getItem('token')));
-
-    syncAuth();
-    window.addEventListener('storage', syncAuth);
-
-    return () => {
-      window.removeEventListener('storage', syncAuth);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    setAuthenticated(Boolean(window.localStorage.getItem('token')));
-  }, [router.asPath]);
+    if (user?.role === 'admin' && router.pathname !== '/admin') {
+      router.replace('/admin');
+    }
+  }, [router, user?.role]);
 
   const navItems = useMemo(
     () => [
@@ -58,11 +48,8 @@ export default function Layout({ children }) {
     router.push(`/search?q=${encodeURIComponent(query)}`);
   };
 
-  const handleLogout = () => {
-    if (typeof window === 'undefined') return;
-
-    localStorage.removeItem('token');
-    setAuthenticated(false);
+  const handleLogout = async () => {
+    await clearAuthState();
     setMenuOpen(false);
     router.push('/');
   };
@@ -104,9 +91,8 @@ export default function Layout({ children }) {
               </Link>
             ))}
 
-            {authenticated && (
-              <Link href="/admin" className={NAV_LINK_CLASS}>Admin</Link>
-            )}
+            {user?.role === 'author' ? <Link href="/author" className={NAV_LINK_CLASS}>Author</Link> : null}
+            {user?.role === 'admin' ? <Link href="/admin" className={NAV_LINK_CLASS}>Admin</Link> : null}
 
             {authenticated ? (
               <button type="button" onClick={handleLogout} className="rounded-full border border-slate-300 px-3 py-1.5 text-left transition hover:border-red-400 hover:text-red-500 dark:border-slate-700 dark:hover:border-red-400 dark:hover:text-red-300">

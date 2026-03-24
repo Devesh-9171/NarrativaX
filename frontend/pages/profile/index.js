@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Layout from '../../components/Layout';
 import api from '../../utils/api';
+import { useAuth } from '../../context/AuthContext';
 
 const INPUT_CLASS = 'w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 shadow-sm outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:border-sky-400 dark:focus:ring-sky-400/10';
 
@@ -26,33 +27,45 @@ export default function ProfilePage() {
   const [verifyingOtp, setVerifyingOtp] = useState(false);
   const [resendingOtp, setResendingOtp] = useState(false);
   const router = useRouter();
-
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
+  const { user, token, refreshUser, clearAuthState, setToken } = useAuth();
 
   const loadProfile = useCallback(async () => {
-    if (!token) return;
+    if (!token) {
+      setMe(null);
+      return;
+    }
     try {
-      const res = await api.get('/user/me', { headers: { Authorization: `Bearer ${token}` } });
-      setMe(res.data);
+      const currentUser = await refreshUser();
+      setMe(currentUser || null);
       setAuthorForm((current) => ({
         ...current,
-        fullName: res.data?.authorProfile?.fullName || '',
-        penName: res.data?.authorProfile?.penName || '',
-        bio: res.data?.authorProfile?.bio || '',
-        paymentDetails: res.data?.authorProfile?.paymentDetails || '',
-        idVerification: res.data?.authorProfile?.idVerification || ''
+        fullName: currentUser?.authorProfile?.fullName || '',
+        penName: currentUser?.authorProfile?.penName || '',
+        bio: currentUser?.authorProfile?.bio || '',
+        paymentDetails: currentUser?.authorProfile?.paymentDetails || '',
+        idVerification: currentUser?.authorProfile?.idVerification || ''
       }));
     } catch (err) {
       setError(err.message || 'Failed to load profile');
     }
-  }, [token]);
+  }, [refreshUser, token]);
+
+  useEffect(() => {
+    setMe(user || null);
+  }, [user]);
 
   useEffect(() => {
     loadProfile();
   }, [loadProfile]);
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
+  useEffect(() => {
+    if (user?.role === 'admin') {
+      router.replace('/admin');
+    }
+  }, [router, user?.role]);
+
+  const handleLogout = async () => {
+    await clearAuthState();
     router.push('/');
   };
 
@@ -132,7 +145,7 @@ export default function ProfilePage() {
                     try {
                       setVerifyingOtp(true);
                       const response = await api.post('/auth/verify-email', { email: me.email, otp });
-                      if (response.data?.token) localStorage.setItem('token', response.data.token);
+                      if (response.data?.token) await setToken(response.data.token);
                       setSuccess('Email verified successfully.');
                       setOtp('');
                       await loadProfile();
@@ -181,13 +194,12 @@ export default function ProfilePage() {
             </section>
           </div>
 
-          {(me.role === 'author' || me.role === 'admin') && (
+          {me.role === 'author' && (
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
               <h2 className="text-xl font-semibold">Author Dashboard</h2>
               <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Manage your books, chapters, and short stories.</p>
               <div className="mt-4 grid gap-2 sm:grid-cols-2">
                 <Link href="/author" className="rounded-xl border border-slate-300 px-4 py-3 text-center text-sm dark:border-slate-700">Open Author Workspace</Link>
-                {me.role === 'admin' ? <Link href="/admin" className="rounded-xl border border-slate-300 px-4 py-3 text-center text-sm dark:border-slate-700">Open Admin Dashboard</Link> : null}
               </div>
             </div>
           )}

@@ -1,12 +1,14 @@
 const mongoose = require('mongoose');
-const { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES } = require('../utils/language');
+const { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES, normalizeLanguage } = require('../utils/language');
 
 const bookSchema = new mongoose.Schema(
   {
     title: { type: String, required: true, trim: true },
     slug: { type: String, required: true, index: true },
     author: { type: String, required: true, trim: true },
+    authorName: { type: String, trim: true },
     authorUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
+    authorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
     category: {
       type: String,
       required: true,
@@ -19,7 +21,14 @@ const bookSchema = new mongoose.Schema(
     description: { type: String, required: true },
     coverImage: { type: String, required: true },
     coverImagePublicId: { type: String, trim: true },
-    language: { type: String, enum: SUPPORTED_LANGUAGES, default: DEFAULT_LANGUAGE, index: true },
+    language: {
+      type: String,
+      enum: SUPPORTED_LANGUAGES,
+      required: true,
+      default: DEFAULT_LANGUAGE,
+      index: true,
+      set: (value) => normalizeLanguage(value, DEFAULT_LANGUAGE)
+    },
     groupId: { type: String, trim: true, index: true },
     rating: { type: Number, default: 0, min: 0, max: 5 },
     totalViews: { type: Number, default: 0, index: true },
@@ -38,6 +47,19 @@ const bookSchema = new mongoose.Schema(
 bookSchema.pre('save', function setDefaults(next) {
   if (!this.language) {
     this.language = DEFAULT_LANGUAGE;
+  }
+
+
+  if (!SUPPORTED_LANGUAGES.includes(this.language)) {
+    return next(new Error('Invalid language'));
+  }
+
+  if (!this.authorName && this.author) {
+    this.authorName = this.author;
+  }
+
+  if (!this.authorId && this.authorUserId) {
+    this.authorId = this.authorUserId;
   }
 
   if (!this.groupId && this._id) {

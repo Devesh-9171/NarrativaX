@@ -3,6 +3,7 @@ import Router from 'next/router';
 import Script from 'next/script';
 import '../styles/globals.css';
 import { ThemeProvider } from '../context/ThemeContext';
+import { AuthProvider } from '../context/AuthContext';
 
 function RouteLoadingOverlay() {
   return (
@@ -48,8 +49,10 @@ export default function App({ Component, pageProps }) {
         </>
       )}
       <ThemeProvider>
-        {isRouteLoading && <RouteLoadingOverlay />}
-        <Component {...pageProps} />
+        <AuthProvider>
+          {isRouteLoading && <RouteLoadingOverlay />}
+          <Component {...pageProps} />
+        </AuthProvider>
       </ThemeProvider>
     </>
   );

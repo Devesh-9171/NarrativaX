@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/router';
 import Layout from '../../components/Layout';
 import api from '../../utils/api';
+import { useAuth } from '../../context/AuthContext';
 
 const INPUT_CLASS = 'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 placeholder-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:placeholder-slate-500';
 
@@ -10,6 +11,7 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const { setToken } = useAuth();
 
   const submit = async (e) => {
     e.preventDefault();
@@ -23,7 +25,7 @@ export default function LoginPage() {
     try {
       setLoading(true);
       const { data } = await api.post('/auth/login', { email: form.email.trim(), password: form.password });
-      localStorage.setItem('token', data.token);
+      await setToken(data.token);
       localStorage.removeItem('guest-reading-history');
       localStorage.removeItem('guest-completed-views');
       router.push('/profile');

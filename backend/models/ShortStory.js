@@ -9,6 +9,7 @@ const shortStorySchema = new mongoose.Schema(
     content: { type: String, required: true, trim: true },
     tags: [{ type: String, trim: true, lowercase: true }],
     authorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+    authorName: { type: String, required: true, trim: true },
     status: { type: String, enum: ['review', 'published', 'rejected'], default: 'review', index: true },
     rejectionReason: { type: String, trim: true, default: '' },
     publishedAt: { type: Date },
@@ -21,7 +22,10 @@ const shortStorySchema = new mongoose.Schema(
 
 shortStorySchema.pre('validate', function normalize(next) {
   this.tags = Array.from(new Set((this.tags || []).map((tag) => String(tag || '').trim().toLowerCase()).filter(Boolean)));
-  next();
+  if ((this.tags || []).length > 3) {
+    return next(new Error('Short stories support max 3 tags'));
+  }
+  return next();
 });
 
 module.exports = mongoose.model('ShortStory', shortStorySchema);

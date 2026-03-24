@@ -55,6 +55,8 @@ exports.createChapter = asyncHandler(async (req, res) => {
     bookId: book._id,
     language: book.language || DEFAULT_LANGUAGE,
     chapterNumber: Number(chapterNumber),
+    authorId: req.user?._id || req.user?.id,
+    authorName: String(req.user?.name || 'ReadNovaX Editorial').trim(),
     title: String(title).trim(),
     content: String(content).trim(),
     slug,

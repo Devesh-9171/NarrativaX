@@ -13,10 +13,10 @@ const ALERT_ERROR_CLASS = 'mb-4 rounded-2xl border border-red-500/30 bg-red-500/
 const ALERT_SUCCESS_CLASS = 'mb-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-200';
 const CATEGORY_OPTIONS = ['action', 'romance', 'comedy', 'mystery', 'finance'];
 const LANGUAGE_OPTIONS = [
-  { value: 'en', label: 'English' },
-  { value: 'hi', label: 'Hindi' }
+  { value: 'english', label: 'English' },
+  { value: 'hindi', label: 'Hindi' }
 ];
-const DEFAULT_LANGUAGE = 'en';
+const DEFAULT_LANGUAGE = 'english';
 
 const initialBookForm = {
   title: '',
@@ -26,7 +26,7 @@ const initialBookForm = {
   coverImage: '',
   coverImageFile: null,
   uploadedCoverImage: '',
-  language: 'en',
+  language: 'english',
   groupId: '',
   contentType: 'long_story',
   tags: ''
@@ -82,12 +82,19 @@ function getBookGroupKey(book) {
   return book?.groupId || book?._id || '';
 }
 
+function normalizeUiLanguage(language) {
+  const value = String(language || '').toLowerCase();
+  if (value === 'en' || value === 'english') return 'english';
+  if (value === 'hi' || value === 'hindi') return 'hindi';
+  return DEFAULT_LANGUAGE;
+}
+
 function isDefaultLanguage(language) {
-  return (language || DEFAULT_LANGUAGE) === DEFAULT_LANGUAGE;
+  return normalizeUiLanguage(language) === DEFAULT_LANGUAGE;
 }
 
 function formatBookOptionLabel(book) {
-  return `${book.title} (${(book.language || DEFAULT_LANGUAGE).toUpperCase()})`;
+  return `${book.title} (${normalizeUiLanguage(book.language).toUpperCase()})`;
 }
 
 function buildTranslationGroupOptions(books) {
@@ -109,7 +116,7 @@ function buildTranslationGroupOptions(books) {
         return left.title.localeCompare(right.title);
       });
       const primaryBook = sortedItems[0];
-      const languages = Array.from(new Set(sortedItems.map((item) => (item.language || DEFAULT_LANGUAGE).toUpperCase()))).join(', ');
+      const languages = Array.from(new Set(sortedItems.map((item) => normalizeUiLanguage(item.language).toUpperCase()))).join(', ');
 
       return {
         value,
@@ -397,7 +404,7 @@ export default function AdminPage() {
       description: book.description || '',
       category: book.category || CATEGORY_OPTIONS[0],
       coverImage: book.coverImage || '',
-      language: book.language || 'en',
+      language: normalizeUiLanguage(book.language || 'english'),
       groupId: book.groupId || ''
     });
   };
@@ -686,7 +693,7 @@ export default function AdminPage() {
                           <p className="line-clamp-3 text-sm text-slate-600 dark:text-slate-300">{book.description || 'No description available.'}</p>
                           <div className="flex flex-wrap items-center gap-2 text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
                             <span className="rounded-full bg-slate-200 px-2.5 py-1 dark:bg-slate-800">{book.category}</span>
-                            <span>{(book.language || 'en').toUpperCase()}</span>
+                            <span>{normalizeUiLanguage(book.language || 'english').toUpperCase()}</span>
                             <span>Group: {book.groupId || 'legacy'}</span>
                           </div>
                           <div className="flex flex-wrap gap-2">

@@ -1,13 +1,13 @@
 const express = require('express');
 const controller = require('../controllers/bookController');
-const { authMiddleware, requireAdmin, requireRoles } = require('../middleware/authMiddleware');
+const { authMiddleware, requireAdmin, requireRole } = require('../middleware/authMiddleware');
 const auth = require('../middleware/auth');
 const { uploadSingleImage } = require('../middleware/uploadMiddleware');
 
 const router = express.Router();
 
-router.post('/', authMiddleware, requireRoles(['admin', 'author']), uploadSingleImage('coverImage'), controller.createBook);
-router.put('/:id', authMiddleware, requireRoles(['admin', 'author']), uploadSingleImage('coverImage'), controller.updateBook);
+router.post('/', authMiddleware, requireRole('author'), uploadSingleImage('coverImage'), controller.createBook);
+router.put('/:id', authMiddleware, requireRole('author'), uploadSingleImage('coverImage'), controller.updateBook);
 router.delete('/:id', authMiddleware, requireAdmin, controller.deleteBook);
 router.get('/homepage', controller.getHomepage);
 router.get('/short-stories/reel', controller.getShortStoriesReel);

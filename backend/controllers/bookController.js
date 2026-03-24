@@ -77,7 +77,7 @@ async function getPaginatedBookResults({ query = {}, sort, page, limit, preferre
     $switch: {
       branches: [
         { case: { $eq: ['$language', preferredLanguage] }, then: 2 },
-        { case: { $eq: ['$language', 'en'] }, then: 1 }
+        { case: { $in: ['$language', ['english', 'en']] }, then: 1 }
       ],
       default: 0
     }
@@ -131,7 +131,6 @@ async function resolveBookVariant(identifier, requestedLanguage, options = {}) {
 exports.createBook = asyncHandler(async (req, res) => {
   const {
     title,
-    author,
     category,
     description,
     coverImage,
@@ -143,10 +142,14 @@ exports.createBook = asyncHandler(async (req, res) => {
     status
   } = req.body;
 
+  const providedLanguage = String(language || '').trim().toLowerCase();
+  if (!['english', 'hindi', 'en', 'hi'].includes(providedLanguage)) {
+    throw new AppError('Invalid language', 400);
+  }
   const normalizedLanguage = normalizeLanguage(language);
   const normalizedTags = parseTags(tags);
-  if (!title || !category || !description || normalizedTags.length === 0 || (!req.file && !coverImage)) {
-    throw new AppError('title, category, description, tags, and cover image are required', 400);
+  if (!title || !category || !description || !language || normalizedTags.length === 0 || (!req.file && !coverImage)) {
+    throw new AppError('title, category, description, language, tags, and cover image are required', 400);
   }
   const normalizedContentType = contentType === 'short_story' ? 'short_story' : 'long_story';
   const maxTags = normalizedContentType === 'short_story' ? 3 : 10;
@@ -179,12 +182,14 @@ exports.createBook = asyncHandler(async (req, res) => {
   const slug = await buildSharedBookSlug({ groupId: nextGroupId, title, language: normalizedLanguage });
   const role = req.user?.role || 'admin';
   const derivedStatus = role === 'admin' ? (status || 'published') : 'review';
-  const normalizedAuthor = String(author || req.user?.name || 'ReadNovaX Editorial').trim();
+  const normalizedAuthor = String(req.user?.name || 'ReadNovaX Editorial').trim();
 
   const book = await Book.create({
     title: String(title).trim(),
     author: normalizedAuthor,
+    authorName: normalizedAuthor,
     authorUserId: req.user?.id || null,
+    authorId: req.user?._id || req.user?.id || null,
     category: String(category).trim(),
     description: String(description).trim(),
     contentType: normalizedContentType,
@@ -205,11 +210,13 @@ exports.createBook = asyncHandler(async (req, res) => {
 });
 
 exports.updateBook = asyncHandler(async (req, res) => {
-  const { title, author, category, description, coverImage, featured, language, groupId, contentType, tags, status } = req.body;
+  const { title, category, description, coverImage, featured, language, groupId, contentType, tags, status } = req.body;
   const book = await Book.findById(req.params.id);
   if (!book) throw new AppError('Book not found', 404);
 
   const previousGroupId = book.groupId || book._id.toString();
+  const providedLanguage = typeof language === 'undefined' ? '' : String(language || '').trim().toLowerCase();
+  if (providedLanguage && !['english', 'hindi', 'en', 'hi'].includes(providedLanguage)) throw new AppError('Invalid language', 400);
   const nextLanguage = normalizeLanguage(language, book.language || DEFAULT_LANGUAGE);
   const nextTitle = title ? String(title).trim() : book.title;
   const nextGroupId = groupId ? await resolveGroupId(groupId) : previousGroupId;
@@ -219,7 +226,10 @@ exports.updateBook = asyncHandler(async (req, res) => {
 
   book.title = nextTitle;
   book.slug = nextSlug;
-  book.author = String(author || book.author || 'ReadNovaX Editorial').trim();
+  book.author = String(req.user?.name || book.author || 'ReadNovaX Editorial').trim();
+  book.authorName = book.author;
+  book.authorUserId = req.user?.id || book.authorUserId;
+  book.authorId = req.user?._id || req.user?.id || book.authorId;
   book.category = category ? String(category).trim() : book.category;
   book.description = description ? String(description).trim() : book.description;
   book.contentType = contentType ? (contentType === 'short_story' ? 'short_story' : 'long_story') : book.contentType;
@@ -293,7 +303,7 @@ exports.getHomepage = asyncHandler(async (req, res) => {
       if (!groups.has(groupKey)) groups.set(groupKey, []);
       groups.get(groupKey).push(book);
     }
-    return Array.from(groups.values()).map((items) => items.find((item) => item.language === lang) || items.find((item) => item.language === 'en') || items[0]);
+    return Array.from(groups.values()).map((items) => items.find((item) => item.language === lang) || items.find((item) => ['english', 'en'].includes(item.language)) || items[0]);
   };
 
   const featured = await applySharedSlugToBooks(selectPreferredBooks(featuredRaw).slice(0, 6));
@@ -387,7 +397,7 @@ exports.getShortStoriesReel = asyncHandler(async (req, res) => {
   }
 
   const preferredStories = Array.from(grouped.values())
-    .map((items) => items.find((item) => item.language === lang) || items.find((item) => item.language === 'en') || items[0])
+    .map((items) => items.find((item) => item.language === lang) || items.find((item) => ['english', 'en'].includes(item.language)) || items[0])
     .slice(0, limit);
 
   const storyIds = preferredStories.map((story) => story._id);
