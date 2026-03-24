@@ -8,7 +8,7 @@ import { buildMeta } from '../utils/seo';
 
 const BOOKS_PER_PAGE = 12;
 
-export default function Home({ data, categories, latestBooks, latestBooksPagination, isFallback }) {
+export default function Home({ data, categories, latestBooks, latestBooksPagination, shortStories, isFallback }) {
   const meta = buildMeta({
     title: 'ReadNovaX - Read trending novels online',
     description: 'Discover trending books, latest chapters, and immersive reading on ReadNovaX.',
@@ -47,6 +47,28 @@ export default function Home({ data, categories, latestBooks, latestBooksPaginat
       )}
 
       <Section title="Featured Novels" books={data.featured} emptyMessage="Featured picks are loading in." />
+      <section className="mb-8">
+        <div className="mb-4 flex items-end justify-between">
+          <div>
+            <h2 className="text-2xl font-bold">Short Stories</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400">Reel-style quick reads with auto-next and smart recommendations.</p>
+          </div>
+          {shortStories[0] && (
+            <Link href={`/short-stories/${shortStories[0].slug}`} className="rounded-full bg-brand-600 px-4 py-2 text-sm font-medium text-white">
+              Open Reel
+            </Link>
+          )}
+        </div>
+        {shortStories.length > 0 ? (
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            {shortStories.map((book, index) => <BookCard key={book._id} book={book} priority={index < 2} />)}
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-dashed border-slate-300 px-5 py-6 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+            Short story reels are warming up.
+          </div>
+        )}
+      </section>
       <Section title="Trending Books" books={data.trending} emptyMessage="Trending stories will show here soon." />
       <Section title="Popular Books" books={data.popular} emptyMessage="Popular books are on the way." />
 
@@ -129,9 +151,10 @@ export async function getServerSideProps({ query }) {
   const page = Number.parseInt(query.page, 10) > 0 ? Number.parseInt(query.page, 10) : 1;
 
   try {
-    const [{ data }, booksResponse] = await Promise.all([
+    const [{ data }, booksResponse, shortStoriesResponse] = await Promise.all([
       api.get('/books/homepage'),
-      api.get('/books', { params: { page, limit: BOOKS_PER_PAGE } })
+      api.get('/books', { params: { page, limit: BOOKS_PER_PAGE } }),
+      api.get('/books', { params: { page: 1, limit: 8, contentType: 'short_story' } })
     ]);
     const categorySet = new Set();
 
@@ -147,6 +170,7 @@ export async function getServerSideProps({ query }) {
         categories: Array.from(categorySet),
         latestBooks: booksResponse.data.data || [],
         latestBooksPagination: booksResponse.data.pagination || null,
+        shortStories: shortStoriesResponse.data.data || [],
         isFallback: false
       }
     };
@@ -157,6 +181,7 @@ export async function getServerSideProps({ query }) {
         categories: [],
         latestBooks: [],
         latestBooksPagination: null,
+        shortStories: [],
         isFallback: true
       }
     };

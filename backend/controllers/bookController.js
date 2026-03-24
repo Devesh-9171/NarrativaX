@@ -14,6 +14,13 @@ function computeTrendingScore(book) {
   return book.viewsLast24h * 3 + book.viewsLast7d * 2 + book.totalViews;
 }
 
+function countWords(content = '') {
+  return String(content)
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean).length;
+}
+
 function parseTags(inputTags) {
   if (Array.isArray(inputTags)) {
     return inputTags.map((tag) => String(tag || '').replace(/^#/, '').trim().toLowerCase()).filter(Boolean);
@@ -293,7 +300,14 @@ exports.getHomepage = asyncHandler(async (req, res) => {
 });
 
 exports.getBooks = asyncHandler(async (req, res) => {
-  const { search = '', category, sort = 'updatedAt', lang = DEFAULT_LANGUAGE, includeAllLanguages } = req.query;
+  const {
+    search = '',
+    category,
+    sort = 'updatedAt',
+    lang = DEFAULT_LANGUAGE,
+    includeAllLanguages,
+    contentType
+  } = req.query;
   const preferredLanguage = normalizeLanguage(lang, DEFAULT_LANGUAGE);
   const query = { status: 'published' };
   const shouldIncludeAllLanguages = String(includeAllLanguages).toLowerCase() === 'true';
@@ -303,6 +317,9 @@ exports.getBooks = asyncHandler(async (req, res) => {
   });
 
   if (category) query.category = category;
+  if (contentType && ['short_story', 'long_story'].includes(String(contentType))) {
+    query.contentType = String(contentType);
+  }
   if (search) {
     const pattern = new RegExp(String(search).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
     query.$or = [{ title: pattern }, { author: pattern }, { category: pattern }, { tags: pattern }];
@@ -335,6 +352,70 @@ exports.getBooks = asyncHandler(async (req, res) => {
 
   const booksWithSharedSlugs = await applySharedSlugToBooks(books);
   res.json({ success: true, data: booksWithSharedSlugs, pagination: buildPaginationMeta({ total, page, limit }) });
+});
+
+exports.getShortStoriesReel = asyncHandler(async (req, res) => {
+  const lang = normalizeLanguage(req.query.lang, DEFAULT_LANGUAGE);
+  const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 24, 5), 60);
+  const key = cacheKey(['short-stories-reel', lang, limit]);
+  const cached = cache.get(key);
+  if (cached) return res.json({ success: true, ...cached });
+
+  const storiesRaw = await Book.find({ status: 'published', contentType: 'short_story' })
+    .sort({ updatedAt: -1, totalViews: -1 })
+    .limit(limit * 3)
+    .select('title slug author category contentType tags coverImage language groupId readingTimeMinutes totalViews')
+    .lean();
+
+  const grouped = new Map();
+  for (const story of storiesRaw) {
+    const groupKey = story.groupId || String(story._id);
+    if (!grouped.has(groupKey)) grouped.set(groupKey, []);
+    grouped.get(groupKey).push(story);
+  }
+
+  const preferredStories = Array.from(grouped.values())
+    .map((items) => items.find((item) => item.language === lang) || items.find((item) => item.language === 'en') || items[0])
+    .slice(0, limit);
+
+  const storyIds = preferredStories.map((story) => story._id);
+  const firstChapters = await Chapter.find({ bookId: { $in: storyIds } })
+    .sort({ chapterNumber: 1 })
+    .select('bookId title slug chapterNumber content')
+    .lean();
+
+  const chapterByBookId = new Map();
+  for (const chapter of firstChapters) {
+    const keyId = String(chapter.bookId);
+    if (!chapterByBookId.has(keyId)) chapterByBookId.set(keyId, chapter);
+  }
+
+  const sharedStories = await applySharedSlugToBooks(preferredStories);
+  const stories = sharedStories
+    .map((story) => {
+      const firstChapter = chapterByBookId.get(String(story._id));
+      if (!firstChapter) return null;
+      const wordCount = countWords(firstChapter.content);
+      const estimatedReadingTimeMinutes = Math.max(1, Math.ceil(wordCount / 220));
+      return {
+        ...story,
+        firstChapter: {
+          _id: firstChapter._id,
+          title: firstChapter.title,
+          slug: firstChapter.slug,
+          chapterNumber: firstChapter.chapterNumber,
+          content: firstChapter.content
+        },
+        wordCount,
+        estimatedReadingTimeMinutes,
+        readingTimeMinutes: Math.max(Number(story.readingTimeMinutes) || 0, estimatedReadingTimeMinutes)
+      };
+    })
+    .filter(Boolean);
+
+  const payload = { stories };
+  cache.set(key, payload);
+  res.json({ success: true, ...payload });
 });
 
 exports.getBookById = asyncHandler(async (req, res) => {
