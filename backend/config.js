@@ -55,7 +55,13 @@ const config = {
   dbConnectRetryMs: toNumber(process.env.DB_CONNECT_RETRY_MS, 5000),
   cloudinaryCloudName: toOptionalTrimmedString(process.env.CLOUDINARY_CLOUD_NAME),
   cloudinaryApiKey: toOptionalTrimmedString(process.env.CLOUDINARY_API_KEY),
-  cloudinaryApiSecret: toOptionalTrimmedString(process.env.CLOUDINARY_API_SECRET)
+  cloudinaryApiSecret: toOptionalTrimmedString(process.env.CLOUDINARY_API_SECRET),
+  smtpHost: toOptionalTrimmedString(process.env.SMTP_HOST),
+  smtpPort: toNumber(process.env.SMTP_PORT, 587),
+  smtpSecure: String(process.env.SMTP_SECURE || '').toLowerCase() === 'true',
+  smtpUser: toOptionalTrimmedString(process.env.SMTP_USER),
+  smtpPass: toOptionalTrimmedString(process.env.SMTP_PASS),
+  smtpFrom: toOptionalTrimmedString(process.env.SMTP_FROM) || 'no-reply@readnovax.local'
 };
 
 config.hasConfiguredCorsOrigins = config.allowedOrigins.length > 0;

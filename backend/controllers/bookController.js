@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const mongoose = require('mongoose');
 const Book = require('../models/Book');
 const Chapter = require('../models/Chapter');
+const User = require('../models/User');
 const asyncHandler = require('../utils/asyncHandler');
 const AppError = require('../utils/AppError');
 const { getPagination, buildPaginationMeta } = require('../utils/pagination');
@@ -147,6 +148,15 @@ exports.createBook = asyncHandler(async (req, res) => {
   if (!title || !category || !description || normalizedTags.length === 0 || (!req.file && !coverImage)) {
     throw new AppError('title, category, description, tags, and cover image are required', 400);
   }
+  const normalizedContentType = contentType === 'short_story' ? 'short_story' : 'long_story';
+  const maxTags = normalizedContentType === 'short_story' ? 3 : 10;
+  if (normalizedTags.length > maxTags) {
+    throw new AppError(`Tag limit exceeded. ${normalizedContentType === 'short_story' ? 'Short stories support max 3 tags' : 'Books support max 10 tags'}`, 400);
+  }
+  if (req.user?.role === 'author') {
+    const author = await User.findById(req.user.id).select('authorStatus').lean();
+    if (author?.authorStatus !== 'approved') throw new AppError('Only approved authors can publish content', 403);
+  }
 
   if (shouldRequireExistingGroup(normalizedLanguage) && !groupId) {
     throw new AppError('Translated books must be linked to an existing translation group', 400);
@@ -177,7 +187,7 @@ exports.createBook = asyncHandler(async (req, res) => {
     authorUserId: req.user?.id || null,
     category: String(category).trim(),
     description: String(description).trim(),
-    contentType: contentType === 'short_story' ? 'short_story' : 'long_story',
+    contentType: normalizedContentType,
     tags: normalizedTags,
     status: ['review', 'published', 'rejected'].includes(derivedStatus) ? derivedStatus : 'review',
     coverImage: resolvedCoverImage,
@@ -216,6 +226,8 @@ exports.updateBook = asyncHandler(async (req, res) => {
   if (typeof tags !== 'undefined') {
     const normalizedTags = parseTags(tags);
     if (normalizedTags.length === 0) throw new AppError('At least one tag is required', 400);
+    const maxTags = book.contentType === 'short_story' ? 3 : 10;
+    if (normalizedTags.length > maxTags) throw new AppError(`Tag limit exceeded. Max ${maxTags} tags allowed for this content type`, 400);
     book.tags = normalizedTags;
   }
   if (coverImage) book.coverImage = String(coverImage).trim();

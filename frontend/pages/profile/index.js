@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
+import Link from 'next/link';
 import Layout from '../../components/Layout';
 import api from '../../utils/api';
 
@@ -10,7 +11,8 @@ const initialAuthorForm = {
   penName: '',
   bio: '',
   paymentDetails: '',
-  idVerification: ''
+  idVerification: '',
+  agreeToTerms: false
 };
 
 export default function ProfilePage() {
@@ -89,6 +91,7 @@ export default function ProfilePage() {
 
   const authorStatus = me?.authorStatus || 'none';
   const translationPermissionGranted = Boolean(me?.authorProfile?.translationPermissionGrantedAt);
+  const isEmailVerified = Boolean(me?.isEmailVerified);
 
   return (
     <Layout>
@@ -111,6 +114,7 @@ export default function ProfilePage() {
           <div className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
             <p><strong>{me.username}</strong> ({me.email})</p>
             <p className="text-sm">Role: <strong className="uppercase">{me.role}</strong> · Author request: <strong className="uppercase">{authorStatus}</strong></p>
+            {!isEmailVerified ? <p className="rounded-xl border border-amber-400/40 bg-amber-100/60 p-2 text-sm text-amber-800 dark:bg-amber-500/10 dark:text-amber-200">Email not verified. Please verify your email before applying as author.</p> : null}
             <section>
               <h2 className="font-semibold">Favorite Books</h2>
               <ul className="list-disc pl-5">{(me.favoriteBooks || []).map((book) => <li key={book._id}>{book.title}</li>)}</ul>
@@ -125,6 +129,17 @@ export default function ProfilePage() {
             </section>
           </div>
 
+          {me.role === 'author' && authorStatus === 'approved' && (
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+              <h2 className="text-xl font-semibold">Author Dashboard</h2>
+              <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                <Link href="/admin" className="rounded-xl border border-slate-300 px-4 py-3 text-center text-sm dark:border-slate-700">Create New Book</Link>
+                <Link href="/admin" className="rounded-xl border border-slate-300 px-4 py-3 text-center text-sm dark:border-slate-700">Add Chapter</Link>
+                <Link href="/admin" className="rounded-xl border border-slate-300 px-4 py-3 text-center text-sm dark:border-slate-700">Upload Short Story</Link>
+              </div>
+            </div>
+          )}
+
           {me.role === 'user' && (
             <form onSubmit={submitAuthorRequest} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
               <h2 className="text-xl font-semibold">Become Author</h2>
@@ -134,9 +149,13 @@ export default function ProfilePage() {
                 <input className={INPUT_CLASS} placeholder="Pen name" value={authorForm.penName} onChange={(e) => setAuthorForm((c) => ({ ...c, penName: e.target.value }))} required />
               </div>
               <textarea className={`${INPUT_CLASS} mt-3 min-h-[100px]`} placeholder="Bio" value={authorForm.bio} onChange={(e) => setAuthorForm((c) => ({ ...c, bio: e.target.value }))} required />
-              <input className={`${INPUT_CLASS} mt-3`} placeholder="Payment details (UPI / PayPal)" value={authorForm.paymentDetails} onChange={(e) => setAuthorForm((c) => ({ ...c, paymentDetails: e.target.value }))} required />
+              <input className={`${INPUT_CLASS} mt-3`} placeholder="Payment details (optional)" value={authorForm.paymentDetails} onChange={(e) => setAuthorForm((c) => ({ ...c, paymentDetails: e.target.value }))} />
               <textarea className={`${INPUT_CLASS} mt-3 min-h-[90px]`} placeholder="Optional ID verification details" value={authorForm.idVerification} onChange={(e) => setAuthorForm((c) => ({ ...c, idVerification: e.target.value }))} />
-              <button disabled={submittingAuthor || authorStatus === 'pending'} className="mt-4 rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-60">
+              <label className="mt-3 flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={authorForm.agreeToTerms} onChange={(e) => setAuthorForm((c) => ({ ...c, agreeToTerms: e.target.checked }))} />
+                I agree to Terms & Conditions
+              </label>
+              <button disabled={submittingAuthor || authorStatus === 'pending' || !authorForm.agreeToTerms || !isEmailVerified} className="mt-4 rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-60">
                 {submittingAuthor ? 'Submitting...' : authorStatus === 'pending' ? 'Request Pending' : 'Submit Author Request'}
               </button>
             </form>

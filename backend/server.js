@@ -9,6 +9,7 @@ const connectDB = require('./config/db');
 const { notFound, errorHandler } = require('./middleware/errorMiddleware');
 const Book = require('./models/Book');
 const Chapter = require('./models/Chapter');
+const ShortStory = require('./models/ShortStory');
 
 const app = express();
 let isDatabaseConnected = mongoose.connection.readyState === 1;
@@ -61,7 +62,7 @@ function buildHealthPayload() {
 }
 
 async function syncDatabaseIndexes() {
-  await Promise.all([Book.syncIndexes(), Chapter.syncIndexes()]);
+  await Promise.all([Book.syncIndexes(), Chapter.syncIndexes(), ShortStory.syncIndexes()]);
 }
 
 async function connectDatabaseWithRetry() {
@@ -162,6 +163,7 @@ app.use('/api/books', require('./routes/bookRoutes'));
 app.use('/api/blog', require('./routes/blogRoutes'));
 app.use('/api/sitemap', require('./routes/sitemapRoutes'));
 app.use('/api/chapters', require('./routes/chapterRoutes'));
+app.use('/api/short-stories', require('./routes/shortStoryRoutes'));
 app.use('/api/user', require('./routes/userRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
 

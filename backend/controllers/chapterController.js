@@ -29,6 +29,9 @@ exports.createChapter = asyncHandler(async (req, res) => {
 
   const book = await Book.findById(bookId).select('_id language status contentType');
   if (!book) throw new AppError('Book not found', 404);
+  if (book.contentType === 'short_story') {
+    throw new AppError('Short stories are single-page content and cannot have chapters', 400);
+  }
 
   const baseSlug = slugify(String(title).trim() || `chapter-${chapterNumber}`, { lower: true, strict: true }) || `chapter-${chapterNumber}`;
   let slug = baseSlug;
@@ -165,6 +168,9 @@ exports.getChapter = asyncHandler(async (req, res) => {
 exports.completeChapterView = asyncHandler(async (req, res) => {
   const { chapterId, progress = 100, status = 'read', tags, contentType, readingTimeMinutes } = req.body;
   if (!chapterId) throw new AppError('chapterId is required', 400);
+  if (Number(progress) < 100 || status === 'skipped') {
+    return res.json({ success: true, message: 'Partial or skipped read not counted as a view' });
+  }
 
   const chapter = await Chapter.findById(chapterId).select('_id bookId');
   if (!chapter) throw new AppError('Chapter not found', 404);

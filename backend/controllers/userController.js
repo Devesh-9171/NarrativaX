@@ -66,12 +66,20 @@ exports.saveReadingProgress = asyncHandler(async (req, res) => {
 });
 
 exports.requestAuthorRole = asyncHandler(async (req, res) => {
-  const { fullName, penName, bio, paymentDetails, idVerification } = req.body;
+  const { fullName, penName, bio, paymentDetails, idVerification, agreeToTerms } = req.body;
   const user = await User.findById(req.user.id);
   if (!user) throw new AppError('User not found', 404);
 
-  if (!fullName || !penName || !bio || !paymentDetails) {
-    throw new AppError('fullName, penName, bio, and paymentDetails are required', 400);
+  if (!user.isEmailVerified) {
+    throw new AppError('Please verify your email before applying as author', 400);
+  }
+
+  if (!fullName || !penName || !bio) {
+    throw new AppError('fullName, penName, and bio are required', 400);
+  }
+
+  if (!agreeToTerms) {
+    throw new AppError('Terms not accepted', 400);
   }
 
   user.authorStatus = 'pending';
@@ -80,7 +88,7 @@ exports.requestAuthorRole = asyncHandler(async (req, res) => {
     fullName: String(fullName).trim(),
     penName: String(penName).trim(),
     bio: String(bio).trim(),
-    paymentDetails: String(paymentDetails).trim(),
+    paymentDetails: String(paymentDetails || '').trim(),
     idVerification: String(idVerification || '').trim() || user.authorProfile?.idVerification
   };
 

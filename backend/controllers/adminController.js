@@ -319,3 +319,41 @@ exports.markBookFinished = asyncHandler(async (req, res) => {
   cache.flushAll();
   res.json({ success: true, data: book });
 });
+
+exports.getTranslationStats = asyncHandler(async (_req, res) => {
+  const books = await Book.find().select('title groupId language').lean();
+  const chapters = await Chapter.find().select('bookId').lean();
+
+  const chaptersByBookId = new Map();
+  for (const chapter of chapters) {
+    const key = String(chapter.bookId);
+    chaptersByBookId.set(key, (chaptersByBookId.get(key) || 0) + 1);
+  }
+
+  const groups = new Map();
+  for (const book of books) {
+    const groupKey = book.groupId || String(book._id);
+    if (!groups.has(groupKey)) groups.set(groupKey, []);
+    groups.get(groupKey).push(book);
+  }
+
+  const data = Array.from(groups.values()).map((variants) => {
+    const base = variants[0];
+    const chapterCounts = variants.map((variant) => chaptersByBookId.get(String(variant._id)) || 0);
+    const totalChapters = Math.max(...chapterCounts, 0);
+    const translatedChapters = Math.min(...chapterCounts, 0);
+    const pendingChapters = Math.max(totalChapters - translatedChapters, 0);
+    const status = totalChapters === 0 ? 'Not started' : pendingChapters === 0 ? 'Completed' : 'Partial';
+
+    return {
+      groupId: base.groupId || String(base._id),
+      title: base.title,
+      totalChapters,
+      translatedChapters,
+      pendingChapters,
+      status
+    };
+  });
+
+  res.json({ success: true, data });
+});
