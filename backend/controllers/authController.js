@@ -4,7 +4,7 @@ const User = require('../models/User');
 const asyncHandler = require('../utils/asyncHandler');
 const AppError = require('../utils/AppError');
 const config = require('../config');
-const { sendEmail, hasSmtpConfig } = require('../utils/mailer');
+const { sendEmail, hasEmailProviderConfig } = require('../utils/mailer');
 
 function signToken(user) {
   return jwt.sign({ id: user._id.toString(), role: user.role, name: user.name }, config.jwtSecret, { expiresIn: '7d' });
@@ -41,20 +41,22 @@ async function sendVerificationOtp(user) {
   return { otp, sentAt };
 }
 
-function sendVerificationOtpInBackground({ email, otp }) {
-  Promise.resolve()
-    .then(async () => {
-      await sendEmail({
-        to: email,
-        subject: 'ReadNovaX email verification OTP',
-        text: `Your verification OTP is ${otp}. It expires in 10 minutes.`,
-        html: `<p>Your verification OTP is <strong>${otp}</strong>.</p><p>It expires in 10 minutes.</p>`
-      });
-      console.info(`[otp] Email send success for ${email}`);
-    })
-    .catch((error) => {
-      console.error(`[otp] Email send failed for ${email}:`, error?.message || error);
-    });
+async function sendVerificationOtpEmail({ email, otp }) {
+  const result = await sendEmail({
+    to: email,
+    subject: 'ReadNovaX email verification OTP',
+    text: `Your verification OTP is ${otp}. It expires in 10 minutes.`,
+    html: `<p>Your verification OTP is <strong>${otp}</strong>.</p><p>It expires in 10 minutes.</p>`
+  });
+
+  if (result?.skipped) {
+    console.error(`[otp] Email send skipped for ${email}.`);
+    throw new AppError('Email delivery service is not configured', 503);
+  }
+
+  const messageId = result?.data?.id || result?.id || 'unknown';
+  console.info(`[otp] Email send success for ${email}. messageId=${messageId}`);
+  return result;
 }
 
 exports.signup = asyncHandler(async (req, res) => {
@@ -78,15 +80,20 @@ exports.signup = asyncHandler(async (req, res) => {
   const hashedPassword = await bcrypt.hash(password, 12);
   const user = await User.create({ name, email, password: hashedPassword });
   const { otp } = await sendVerificationOtp(user);
-  sendVerificationOtpInBackground({ email: user.email, otp });
-  const smtpEnabled = hasSmtpConfig();
+  try {
+    await sendVerificationOtpEmail({ email: user.email, otp });
+  } catch (error) {
+    console.error(`[otp] Email send failed for ${user.email}:`, error?.message || error);
+    throw new AppError('Signup failed: unable to deliver verification OTP email. Please try again.', 502);
+  }
+  const emailProviderEnabled = hasEmailProviderConfig();
   res.status(201).json({
     success: true,
     requiresEmailVerification: true,
-    message: smtpEnabled
+    message: emailProviderEnabled
       ? 'Signup successful. OTP sent to your email.'
-      : 'Signup successful. OTP generated, but email delivery is disabled on this server.',
-    otpDelivery: smtpEnabled ? 'started' : 'disabled',
+      : 'Signup successful.',
+    otpDelivery: 'sent',
     user: sanitizeUser(user)
   });
 });
@@ -158,14 +165,17 @@ exports.resendEmailOtp = asyncHandler(async (req, res) => {
   }
 
   const { otp } = await sendVerificationOtp(user);
-  sendVerificationOtpInBackground({ email: user.email, otp });
-  const smtpEnabled = hasSmtpConfig();
+  try {
+    await sendVerificationOtpEmail({ email: user.email, otp });
+  } catch (error) {
+    console.error(`[otp] Resend email failed for ${user.email}:`, error?.message || error);
+    throw new AppError('Unable to resend OTP email right now. Please try again.', 502);
+  }
+  const emailProviderEnabled = hasEmailProviderConfig();
   res.json({
     success: true,
-    message: smtpEnabled
-      ? 'OTP sent to your email.'
-      : 'OTP generated, but email delivery is disabled on this server.',
-    otpDelivery: smtpEnabled ? 'started' : 'disabled',
+    message: emailProviderEnabled ? 'OTP sent to your email.' : 'OTP sent.',
+    otpDelivery: 'sent',
     cooldownSeconds: config.otpResendCooldownSeconds || 45
   });
 });

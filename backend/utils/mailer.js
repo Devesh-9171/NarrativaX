@@ -1,46 +1,47 @@
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 const config = require('../config');
 
-let transporter = null;
+let resendClient = null;
 
-function hasSmtpConfig() {
-  return Boolean(config.smtpHost && config.smtpUser && config.smtpPass);
+function hasEmailProviderConfig() {
+  return Boolean(config.resendApiKey);
 }
 
-function getTransporter() {
-  if (!hasSmtpConfig()) return null;
-  if (!transporter) {
-    transporter = nodemailer.createTransport({
-      host: config.smtpHost,
-      port: config.smtpPort,
-      secure: config.smtpSecure,
-      connectionTimeout: config.smtpConnectionTimeoutMs,
-      greetingTimeout: config.smtpGreetingTimeoutMs,
-      socketTimeout: config.smtpSocketTimeoutMs,
-      auth: {
-        user: config.smtpUser,
-        pass: config.smtpPass
-      }
-    });
+function getResendClient() {
+  if (!hasEmailProviderConfig()) return null;
+  if (!resendClient) {
+    resendClient = new Resend(config.resendApiKey);
   }
-
-  return transporter;
+  return resendClient;
 }
 
 async function sendEmail({ to, subject, text, html }) {
-  const client = getTransporter();
+  const client = getResendClient();
   if (!client) {
-    console.info(`[mail:disabled] ${subject} -> ${to}.`);
+    console.info(`[mail:disabled] ${subject} -> ${to} (RESEND_API_KEY missing).`);
     return { skipped: true };
   }
 
-  return client.sendMail({
-    from: config.smtpFrom,
-    to,
+  const payload = {
+    from: config.resendFrom,
+    to: Array.isArray(to) ? to : [to],
     subject,
-    text,
-    html
+    html: html || `<pre>${text || ''}</pre>`,
+    text
+  };
+
+  const timeoutMs = Math.max(1000, Number(config.resendRequestTimeoutMs) || 7000);
+  const sendPromise = client.emails.send(payload);
+  const timeoutPromise = new Promise((_, reject) => {
+    setTimeout(() => reject(new Error(`Resend request timed out after ${timeoutMs}ms`)), timeoutMs);
   });
+
+  const response = await Promise.race([sendPromise, timeoutPromise]);
+  if (response?.error) {
+    throw new Error(response.error.message || 'Resend API returned an unknown error');
+  }
+
+  return response;
 }
 
-module.exports = { sendEmail, hasSmtpConfig };
+module.exports = { sendEmail, hasEmailProviderConfig };
