@@ -56,15 +56,9 @@ const config = {
   cloudinaryCloudName: toOptionalTrimmedString(process.env.CLOUDINARY_CLOUD_NAME),
   cloudinaryApiKey: toOptionalTrimmedString(process.env.CLOUDINARY_API_KEY),
   cloudinaryApiSecret: toOptionalTrimmedString(process.env.CLOUDINARY_API_SECRET),
-  smtpHost: toOptionalTrimmedString(process.env.SMTP_HOST),
-  smtpPort: toNumber(process.env.SMTP_PORT, 587),
-  smtpSecure: String(process.env.SMTP_SECURE || '').toLowerCase() === 'true',
-  smtpUser: toOptionalTrimmedString(process.env.SMTP_USER),
-  smtpPass: toOptionalTrimmedString(process.env.SMTP_PASS),
-  smtpFrom: toOptionalTrimmedString(process.env.SMTP_FROM) || 'no-reply@readnovax.local',
-  smtpConnectionTimeoutMs: toNumber(process.env.SMTP_CONNECTION_TIMEOUT_MS, 15000),
-  smtpGreetingTimeoutMs: toNumber(process.env.SMTP_GREETING_TIMEOUT_MS, 15000),
-  smtpSocketTimeoutMs: toNumber(process.env.SMTP_SOCKET_TIMEOUT_MS, 30000),
+  resendApiKey: toOptionalTrimmedString(process.env.RESEND_API_KEY),
+  resendFrom: toOptionalTrimmedString(process.env.RESEND_FROM) || 'no-reply@readnovax.local',
+  resendRequestTimeoutMs: toNumber(process.env.RESEND_REQUEST_TIMEOUT_MS, 7000),
   otpResendCooldownSeconds: toNumber(process.env.OTP_RESEND_COOLDOWN_SECONDS, 45)
 };
 
