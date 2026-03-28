@@ -7,6 +7,7 @@ const router = express.Router();
 router.get('/stats', auth('admin'), controller.dashboardStats);
 router.get('/blogs', auth('admin'), controller.getBlogs);
 router.get('/author-requests', auth('admin'), controller.getAuthorRequests);
+router.get('/authors/analytics', auth('admin'), controller.getAuthorAnalytics);
 router.post('/author-requests/:userId/review', auth('admin'), controller.reviewAuthorRequest);
 router.get('/content/review-queue', auth('admin'), controller.getReviewQueue);
 router.get('/translations', auth('admin'), controller.getTranslationStats);

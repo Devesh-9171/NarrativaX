@@ -263,6 +263,39 @@ exports.getAuthorRequests = asyncHandler(async (_req, res) => {
   res.json({ success: true, data: requests });
 });
 
+function normalizeMoney(value) {
+  if (!Number.isFinite(value) || value < 0) return 0;
+  return value;
+}
+
+function normalizeCount(value) {
+  if (!Number.isFinite(value) || value < 0) return 0;
+  return Math.floor(value);
+}
+
+exports.getAuthorAnalytics = asyncHandler(async (_req, res) => {
+  const authors = await User.find({
+    $or: [{ role: 'author' }, { authorStatus: 'approved' }]
+  })
+    .sort({ updatedAt: -1 })
+    .select('name email monthlyViews lifetimeViews totalPaidAmount authorProfile updatedAt')
+    .lean();
+
+  const data = authors.map((author) => ({
+    ...author,
+    monthlyViews: normalizeCount(Number(author.monthlyViews)),
+    lifetimeViews: normalizeCount(Number(author.lifetimeViews)),
+    totalPaidAmount: normalizeMoney(Number(author.totalPaidAmount)),
+    authorProfile: {
+      upiId: author.authorProfile?.upiId || '',
+      bankDetails: author.authorProfile?.bankDetails || '',
+      internationalPayment: author.authorProfile?.internationalPayment || ''
+    }
+  }));
+
+  res.json({ success: true, data });
+});
+
 exports.reviewAuthorRequest = asyncHandler(async (req, res) => {
   const { action } = req.body;
   const user = await User.findById(req.params.userId);

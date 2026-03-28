@@ -25,6 +25,17 @@ const userSchema = new mongoose.Schema(
     role: { type: String, enum: ['user', 'author', 'admin'], default: 'user' },
     authorStatus: { type: String, enum: ['none', 'pending', 'approved', 'rejected'], default: 'none', index: true },
     authorProfile: { type: authorProfileSchema, default: () => ({}) },
+    monthlyViews: { type: Number, default: 0, min: 0 },
+    lifetimeViews: { type: Number, default: 0, min: 0 },
+    totalPaidAmount: { type: Number, default: 0, min: 0 },
+    paymentRecords: [
+      {
+        amount: { type: Number, min: 0 },
+        paidAt: { type: Date },
+        note: { type: String, trim: true, maxlength: 250 },
+        reference: { type: String, trim: true, maxlength: 150 }
+      }
+    ],
     bookmarks: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Chapter' }],
     favoriteBooks: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Book' }],
     readingHistory: [

@@ -204,6 +204,7 @@ export default function AdminPage() {
   const [deletingBookId, setDeletingBookId] = useState('');
   const [deletingBlogId, setDeletingBlogId] = useState('');
   const [authorRequests, setAuthorRequests] = useState([]);
+  const [authorAnalytics, setAuthorAnalytics] = useState([]);
   const [reviewQueue, setReviewQueue] = useState([]);
   const [translationStats, setTranslationStats] = useState([]);
   const [editBookImageFile, setEditBookImageFile] = useState(null);
@@ -252,11 +253,12 @@ export default function AdminPage() {
     setListError('');
 
     try {
-      const [statsResponse, booksResponse, blogsResponse, authorRequestsResponse, reviewQueueResponse, translationsResponse] = await Promise.all([
+      const [statsResponse, booksResponse, blogsResponse, authorRequestsResponse, authorAnalyticsResponse, reviewQueueResponse, translationsResponse] = await Promise.all([
         api.get('/admin/stats', { headers: authHeaders }),
         api.get('/books', { params: { limit: 100, includeAllLanguages: true } }),
         api.get('/admin/blogs', { headers: authHeaders }),
         api.get('/admin/author-requests', { headers: authHeaders }),
+        api.get('/admin/authors/analytics', { headers: authHeaders }),
         api.get('/admin/content/review-queue', { headers: authHeaders }),
         api.get('/admin/translations', { headers: authHeaders })
       ]);
@@ -266,6 +268,7 @@ export default function AdminPage() {
       setBooks(nextBooks);
       setBlogPosts(blogsResponse.data.data || []);
       setAuthorRequests(authorRequestsResponse.data.data || []);
+      setAuthorAnalytics(authorAnalyticsResponse.data.data || []);
       setReviewQueue(reviewQueueResponse.data.data || []);
       setTranslationStats(translationsResponse.data.data || []);
       setChapterForm((current) => ({
@@ -276,6 +279,7 @@ export default function AdminPage() {
       setStats(null);
       setBooks([]);
       setBlogPosts([]);
+      setAuthorAnalytics([]);
       setListError(error.message || 'Could not load the admin workspace.');
     } finally {
       setLoadingStats(false);
@@ -791,6 +795,49 @@ export default function AdminPage() {
             </div>
           ))}
         </div>
+      </section>
+
+      <section className={`${CARD_CLASS} mt-6`}>
+        <h2 className="text-xl font-semibold">Author Analytics & Payment Details</h2>
+        {authorAnalytics.length === 0 ? (
+          <p className="mt-3 text-sm text-slate-500">No approved authors found.</p>
+        ) : (
+          <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+            <table className="min-w-full divide-y divide-slate-200 text-left text-sm dark:divide-slate-800">
+              <thead className="bg-slate-50 dark:bg-slate-900">
+                <tr className="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-300">
+                  <th className="px-4 py-3 font-semibold">Name</th>
+                  <th className="px-4 py-3 font-semibold">Email</th>
+                  <th className="px-4 py-3 font-semibold">Views (Monthly / Lifetime)</th>
+                  <th className="px-4 py-3 font-semibold">Total Paid</th>
+                  <th className="px-4 py-3 font-semibold">Payment Info</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-900">
+                {authorAnalytics.map((author) => (
+                  <tr key={author._id} className="align-top">
+                    <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{author.name || 'Unknown author'}</td>
+                    <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{author.email || 'Not added'}</td>
+                    <td className="px-4 py-3 text-slate-700 dark:text-slate-300">
+                      {(Number.isFinite(author.monthlyViews) ? author.monthlyViews : 0).toLocaleString()} / {(Number.isFinite(author.lifetimeViews) ? author.lifetimeViews : 0).toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3 text-slate-700 dark:text-slate-300">₹{(Number.isFinite(author.totalPaidAmount) ? author.totalPaidAmount : 0).toLocaleString('en-IN')}</td>
+                    <td className="px-4 py-3 text-xs text-slate-600 dark:text-slate-300">
+                      <details>
+                        <summary className="cursor-pointer font-semibold text-slate-700 dark:text-slate-200">View details</summary>
+                        <div className="mt-2 space-y-1">
+                          <p><span className="font-semibold">UPI:</span> {author.authorProfile?.upiId || 'Not added'}</p>
+                          <p><span className="font-semibold">Bank:</span> {author.authorProfile?.bankDetails || 'Not added'}</p>
+                          <p><span className="font-semibold">International:</span> {author.authorProfile?.internationalPayment || 'Not added'}</p>
+                        </div>
+                      </details>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
 
       <section className={`${CARD_CLASS} mt-6`}>
