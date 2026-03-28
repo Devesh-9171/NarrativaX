@@ -13,6 +13,7 @@ const storyHistorySchema = new mongoose.Schema(
 
 storyHistorySchema.index({ userId: 1, storyId: 1 }, { unique: true });
 storyHistorySchema.index({ userId: 1, readAt: -1 });
+storyHistorySchema.index({ storyId: 1, readAt: -1 });
 storyHistorySchema.index({ readAt: 1 }, { expireAfterSeconds: SIX_MONTHS_IN_SECONDS });
 
 module.exports = mongoose.model('StoryHistory', storyHistorySchema);

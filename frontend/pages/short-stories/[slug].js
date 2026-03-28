@@ -49,6 +49,15 @@ function rankStories(stories, currentStory, history) {
     .sort((a, b) => b.recommendationScore - a.recommendationScore);
 }
 
+function mergeStories(existingStories, incomingStories) {
+  const map = new Map((existingStories || []).map((story) => [story._id, story]));
+  for (const story of incomingStories || []) {
+    if (!story?._id) continue;
+    if (!map.has(story._id)) map.set(story._id, story);
+  }
+  return Array.from(map.values());
+}
+
 export default function ShortStoryReelPage({ stories, slug }) {
   const router = useRouter();
   const { token } = useAuth();
@@ -59,9 +68,11 @@ export default function ShortStoryReelPage({ stories, slug }) {
   const [cancelled, setCancelled] = useState(false);
   const [history, setHistory] = useState([]);
   const [storyFeed, setStoryFeed] = useState(Array.isArray(stories) ? stories : []);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
+  const [hasMoreStories, setHasMoreStories] = useState(true);
 
   useEffect(() => {
-    setStoryFeed(Array.isArray(stories) ? stories : []);
+    setStoryFeed((prev) => mergeStories(prev, Array.isArray(stories) ? stories : []));
   }, [stories]);
 
   const currentStory = useMemo(() => storyFeed.find((story) => story.slug === slug) || storyFeed[0] || null, [slug, storyFeed]);
@@ -79,11 +90,11 @@ export default function ShortStoryReelPage({ stories, slug }) {
       if (!token) return;
       try {
         const response = await api.get('/books/short-stories/reel', {
-          params: { limit: 36 },
+          params: { limit: 3 },
           headers: { Authorization: `Bearer ${token}` }
         });
         if (cancelledRequest) return;
-        setStoryFeed(response.data?.stories || []);
+        setStoryFeed((prev) => mergeStories(prev, response.data?.stories || []));
       } catch (_error) {
         // Keep SSR feed as fallback when personalized query fails.
       }
@@ -112,6 +123,39 @@ export default function ShortStoryReelPage({ stories, slug }) {
     router.prefetch(`/short-stories/${nextStory.slug}`);
     if (rankedStories[1]) router.prefetch(`/short-stories/${rankedStories[1].slug}`);
   }, [nextStory, rankedStories, router]);
+
+  useEffect(() => {
+    if (!currentStory?._id || isFetchingMore || !hasMoreStories) return;
+    const currentIndex = storyFeed.findIndex((story) => story._id === currentStory._id);
+    const remainingStories = currentIndex >= 0 ? storyFeed.length - currentIndex - 1 : rankedStories.length;
+    if (remainingStories > 2) return;
+
+    let ignore = false;
+    const fetchMoreStories = async () => {
+      setIsFetchingMore(true);
+      try {
+        const excludeStoryIds = storyFeed.map((story) => story._id).filter(Boolean).join(',');
+        const config = token ? { headers: { Authorization: `Bearer ${token}` } } : undefined;
+        const response = await api.get('/books/short-stories/reel', {
+          ...config,
+          params: { limit: 3, excludeStoryIds }
+        });
+        if (ignore) return;
+        const incoming = response.data?.stories || [];
+        if (incoming.length === 0) setHasMoreStories(false);
+        setStoryFeed((prev) => mergeStories(prev, incoming));
+      } catch (_error) {
+        if (!ignore) setHasMoreStories(false);
+      } finally {
+        if (!ignore) setIsFetchingMore(false);
+      }
+    };
+
+    fetchMoreStories();
+    return () => {
+      ignore = true;
+    };
+  }, [currentStory?._id, hasMoreStories, isFetchingMore, rankedStories.length, storyFeed, token]);
 
   useEffect(() => {
     setShowNextPopup(false);
@@ -236,7 +280,7 @@ export default function ShortStoryReelPage({ stories, slug }) {
 
 export async function getServerSideProps({ params }) {
   try {
-    const { data } = await api.get('/books/short-stories/reel', { params: { limit: 36 } });
+    const { data } = await api.get('/books/short-stories/reel', { params: { limit: 3 } });
     const stories = data?.stories || [];
     if (stories.length === 0) return { props: { stories: [], slug: params.slug || null } };
     const existing = stories.find((story) => story.slug === params.slug);
