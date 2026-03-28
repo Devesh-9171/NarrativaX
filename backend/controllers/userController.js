@@ -1,6 +1,8 @@
 const User = require('../models/User');
 const Book = require('../models/Book');
 const ShortStory = require('../models/ShortStory');
+const Chapter = require('../models/Chapter');
+const ReadingProgress = require('../models/ReadingProgress');
 const asyncHandler = require('../utils/asyncHandler');
 const AppError = require('../utils/AppError');
 
@@ -148,4 +150,75 @@ exports.getMyContent = asyncHandler(async (req, res) => {
     .lean();
 
   res.json({ success: true, data: books, shortStories });
+});
+
+
+exports.upsertReadingProgress = asyncHandler(async (req, res) => {
+  const { bookId, chapterId, chapterNumber } = req.body || {};
+
+  if (!bookId || !chapterId || !Number.isFinite(Number(chapterNumber))) {
+    throw new AppError('bookId, chapterId and chapterNumber are required', 400);
+  }
+
+  const chapter = await Chapter.findOne({ _id: chapterId, bookId }).select('_id chapterNumber');
+  if (!chapter) throw new AppError('Chapter not found for this book', 404);
+
+  const progress = await ReadingProgress.findOneAndUpdate(
+    { userId: req.user.id, bookId },
+    {
+      userId: req.user.id,
+      bookId,
+      chapterId: chapter._id,
+      chapterNumber: chapter.chapterNumber || Number(chapterNumber)
+    },
+    { new: true, upsert: true, setDefaultsOnInsert: true }
+  ).lean();
+
+  res.json({ success: true, data: progress });
+});
+
+exports.getBookReadingProgress = asyncHandler(async (req, res) => {
+  const progress = await ReadingProgress.findOne({ userId: req.user.id, bookId: req.params.bookId })
+    .select('userId bookId chapterId chapterNumber updatedAt')
+    .lean();
+
+  res.json({ success: true, data: progress || null });
+});
+
+exports.getContinueReading = asyncHandler(async (req, res) => {
+  const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 5, 1), 10);
+
+  const entries = await ReadingProgress.find({ userId: req.user.id })
+    .sort({ updatedAt: -1 })
+    .limit(limit)
+    .populate({ path: 'bookId', select: 'title slug coverImage language contentType status' })
+    .populate({ path: 'chapterId', select: 'slug title chapterNumber' })
+    .lean();
+
+  const filtered = entries.filter((item) => item.bookId && item.bookId.contentType !== 'short_story' && item.bookId.status === 'published');
+
+  const payload = await Promise.all(filtered.map(async (item) => {
+    let chapter = item.chapterId;
+
+    if (!chapter) {
+      chapter = await Chapter.findOne({ bookId: item.bookId._id }).sort({ chapterNumber: 1 }).select('slug title chapterNumber').lean();
+    }
+
+    if (!chapter) return null;
+
+    return {
+      bookId: item.bookId._id,
+      bookTitle: item.bookId.title,
+      bookSlug: item.bookId.slug,
+      bookCoverImage: item.bookId.coverImage,
+      language: item.bookId.language,
+      chapterId: chapter._id,
+      chapterSlug: chapter.slug,
+      chapterTitle: chapter.title,
+      chapterNumber: chapter.chapterNumber,
+      updatedAt: item.updatedAt
+    };
+  }));
+
+  res.json({ success: true, data: payload.filter(Boolean) });
 });

@@ -8,6 +8,7 @@ import AdSlot from './AdSlot';
 import api from '../utils/api';
 import { buildCanonicalUrl, buildMeta } from '../utils/seo';
 import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
 
 const DEFAULT_SETTINGS = {
   fontSize: 19,
@@ -32,9 +33,29 @@ export default function ChapterReaderPage({ book, chapter, chapters = [], previo
   const [visibleParagraphs, setVisibleParagraphs] = useState(8);
   const [completionTracked, setCompletionTracked] = useState(false);
   const { theme, setTheme } = useTheme();
+  const { token } = useAuth();
   const content = chapter?.content || '';
   const paragraphs = useMemo(() => content.split(/\n{2,}/).map((paragraph) => paragraph.trim()).filter(Boolean), [content]);
   const displayedParagraphs = paragraphs.slice(0, visibleParagraphs);
+
+  const hasTrackedOpenRef = useRef(false);
+  const hasTrackedScrollRef = useRef(false);
+
+  const saveContinueReadingProgress = useCallback(async () => {
+    if (!token || !book?._id || !chapter?._id || !Number.isFinite(Number(chapter?.chapterNumber))) return;
+
+    try {
+      await api.post('/user/reading-progress', {
+        bookId: book._id,
+        chapterId: chapter._id,
+        chapterNumber: chapter.chapterNumber
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    } catch (_error) {
+      // no-op to avoid interrupting reading flow
+    }
+  }, [book?._id, chapter?._id, chapter?.chapterNumber, token]);
 
   const showProtectionToast = useCallback(() => {
     setToast('Content protected');
@@ -173,6 +194,8 @@ export default function ChapterReaderPage({ book, chapter, chapters = [], previo
   useEffect(() => {
     setVisibleParagraphs(8);
     setCompletionTracked(false);
+    hasTrackedOpenRef.current = false;
+    hasTrackedScrollRef.current = false;
   }, [chapter?._id]);
 
 
@@ -181,6 +204,19 @@ export default function ChapterReaderPage({ book, chapter, chapters = [], previo
       trackCompletedView();
     }
   }, [completionTracked, paragraphs.length, progress, trackCompletedView, visibleParagraphs]);
+
+
+  useEffect(() => {
+    if (!token || !chapter?._id || hasTrackedOpenRef.current) return;
+    hasTrackedOpenRef.current = true;
+    saveContinueReadingProgress();
+  }, [chapter?._id, saveContinueReadingProgress, token]);
+
+  useEffect(() => {
+    if (!token || progress < 50 || hasTrackedScrollRef.current) return;
+    hasTrackedScrollRef.current = true;
+    saveContinueReadingProgress();
+  }, [progress, saveContinueReadingProgress, token]);
 
 
   useEffect(() => {

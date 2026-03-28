@@ -1,14 +1,45 @@
 import Link from 'next/link';
+import Image from 'next/image';
+import { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
 import BookCard from '../components/BookCard';
 import PaginationNav from '../components/PaginationNav';
 import SeoHead from '../components/SeoHead';
 import api from '../utils/api';
 import { buildMeta } from '../utils/seo';
+import { useAuth } from '../context/AuthContext';
 
 const BOOKS_PER_PAGE = 12;
 
 export default function Home({ data, categories, latestBooks, latestBooksPagination, shortStories, isFallback }) {
+  const { token } = useAuth();
+  const [continueReading, setContinueReading] = useState([]);
+
+  useEffect(() => {
+    if (!token) {
+      setContinueReading([]);
+      return;
+    }
+
+    let mounted = true;
+
+    api.get('/user/reading-progress', {
+      params: { limit: 5 },
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(({ data: response }) => {
+        if (!mounted) return;
+        setContinueReading(Array.isArray(response?.data) ? response.data.slice(0, 5) : []);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setContinueReading([]);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [token]);
   const meta = buildMeta({
     title: 'ReadNovaX - Read trending novels online',
     description: 'Discover trending books, latest chapters, and immersive reading on ReadNovaX.',
@@ -44,6 +75,35 @@ export default function Home({ data, categories, latestBooks, latestBooksPaginat
         <p className="mb-6 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-700 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-200">
           We&apos;re waking up the library right now. Content will appear automatically on your next refresh.
         </p>
+      )}
+
+
+      {continueReading.length > 0 && (
+        <section className="mb-8">
+          <div className="mb-4 flex items-end justify-between">
+            <div>
+              <h2 className="text-2xl font-bold">Continue Reading</h2>
+              <p className="text-sm text-slate-500 dark:text-slate-400">Resume from your last read chapters.</p>
+            </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {continueReading.map((entry) => (
+              <Link
+                key={`${entry.bookId}-${entry.chapterId}`}
+                href={`/book/${entry.bookSlug}/${entry.chapterSlug}${entry.language === 'hi' ? '?lang=hi' : ''}`}
+                className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 transition hover:border-brand-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-sky-400/40"
+              >
+                <div className="relative h-16 w-12 overflow-hidden rounded-lg">
+                  <Image src={entry.bookCoverImage} alt={entry.bookTitle} fill sizes="48px" className="object-cover" />
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate font-semibold">{entry.bookTitle}</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">Last chapter: {entry.chapterNumber}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
       )}
 
       <Section title="Featured Novels" books={data.featured} emptyMessage="Featured picks are loading in." />
