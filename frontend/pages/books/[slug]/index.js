@@ -1,10 +1,12 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Layout from '../../../components/Layout';
 import SeoHead from '../../../components/SeoHead';
 import api from '../../../utils/api';
 import { buildLanguageAlternates, buildMeta } from '../../../utils/seo';
+import { useAuth } from '../../../context/AuthContext';
 
 const LANGUAGE_OPTIONS = [
   { code: 'en', label: 'EN' },
@@ -17,6 +19,31 @@ function buildBookPath(slug, language = 'en') {
 
 export default function BookPage({ book, chapters, translations = [], isFallback }) {
   const router = useRouter();
+  const { token } = useAuth();
+  const [continueProgress, setContinueProgress] = useState(null);
+
+  useEffect(() => {
+    if (!token || !book?._id) {
+      setContinueProgress(null);
+      return;
+    }
+
+    let mounted = true;
+
+    api.get(`/user/reading-progress/${book._id}`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(({ data }) => {
+        if (!mounted || !data?.data) return;
+        setContinueProgress(data.data);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setContinueProgress(null);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [book?._id, token]);
 
   if (!book) {
     return (
@@ -83,6 +110,14 @@ export default function BookPage({ book, chapters, translations = [], isFallback
             <span>{book.totalViews.toLocaleString()} reads</span>
             <span className="rounded-full bg-slate-100 px-3 py-1 font-semibold uppercase tracking-[0.18em] dark:bg-slate-800">{book.language}</span>
           </div>
+          {continueProgress && (
+            <Link
+              href={`/book/${book.slug}/${(chapters.find((chapter) => String(chapter._id) === String(continueProgress.chapterId))?.slug || chapters[0]?.slug)}${book.language === 'hi' ? '?lang=hi' : ''}`}
+              className="mt-5 mr-3 inline-block rounded-full border border-brand-200 bg-brand-50 px-5 py-2.5 font-medium text-brand-700 transition hover:bg-brand-100 dark:border-sky-400/40 dark:bg-sky-400/10 dark:text-sky-200 dark:hover:bg-sky-400/20"
+            >
+              Continue Reading from Chapter {continueProgress.chapterNumber}
+            </Link>
+          )}
           {chapters[0] && (
             <Link href={`/book/${book.slug}/${chapters[0].slug}${book.language === 'hi' ? '?lang=hi' : ''}`} className="mt-5 inline-block rounded-full bg-brand-600 px-5 py-2.5 text-white transition hover:bg-brand-500">
               Start Reading

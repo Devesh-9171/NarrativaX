@@ -11,6 +11,7 @@ const Book = require('./models/Book');
 const Chapter = require('./models/Chapter');
 const ShortStory = require('./models/ShortStory');
 const Payment = require('./models/Payment');
+const ReadingProgress = require('./models/ReadingProgress');
 
 const app = express();
 let isDatabaseConnected = mongoose.connection.readyState === 1;
@@ -63,7 +64,7 @@ function buildHealthPayload() {
 }
 
 async function syncDatabaseIndexes() {
-  await Promise.all([Book.syncIndexes(), Chapter.syncIndexes(), ShortStory.syncIndexes(), Payment.syncIndexes()]);
+  await Promise.all([Book.syncIndexes(), Chapter.syncIndexes(), ShortStory.syncIndexes(), Payment.syncIndexes(), ReadingProgress.syncIndexes()]);
 }
 
 async function connectDatabaseWithRetry() {
