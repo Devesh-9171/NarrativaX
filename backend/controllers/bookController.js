@@ -34,6 +34,25 @@ function parseTags(inputTags) {
     .filter(Boolean);
 }
 
+function normalizeObjectIdList(values = []) {
+  const deduped = new Set();
+  for (const value of values) {
+    const raw = String(value || '').trim();
+    if (!raw || !mongoose.Types.ObjectId.isValid(raw)) continue;
+    deduped.add(raw);
+  }
+  return Array.from(deduped).map((id) => new mongoose.Types.ObjectId(id));
+}
+
+function randomizedSort(items = [], scoreAccessor) {
+  return [...items].sort((a, b) => {
+    const baseDiff = (Number(scoreAccessor(b)) || 0) - (Number(scoreAccessor(a)) || 0);
+    const jitter = Math.random() * 0.6 - 0.3;
+    if (Math.abs(baseDiff) > 0.01) return baseDiff + jitter;
+    return Math.random() - 0.5;
+  });
+}
+
 async function resolveGroupId(groupId) {
   if (!groupId) {
     return crypto.randomUUID();
@@ -381,50 +400,166 @@ exports.getBooks = asyncHandler(async (req, res) => {
 
 exports.getShortStoriesReel = asyncHandler(async (req, res) => {
   const lang = normalizeLanguage(req.query.lang, DEFAULT_LANGUAGE);
-  const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 24, 5), 60);
+  const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 3, 1), 3);
   const historyCutoff = new Date(Date.now() - (1000 * 60 * 60 * 24 * 30 * 6));
-  let excludedStoryIds = [];
+  const queryExcludedStoryIds = normalizeObjectIdList(String(req.query.excludeStoryIds || '').split(','));
+  let excludedStoryIds = [...queryExcludedStoryIds];
+  let preferredTags = [];
+  let recentReadStoryIds = [];
+  let similarUserIds = [];
 
   if (req.user?.id) {
-    excludedStoryIds = await StoryHistory.find({
+    const historyRows = await StoryHistory.find({
       userId: req.user.id,
       readAt: { $gte: historyCutoff }
     })
+      .sort({ readAt: -1 })
       .select('storyId')
       .lean()
       .then((rows) => rows.map((row) => row.storyId));
-  }
 
-  const key = cacheKey(['short-stories-reel', lang, limit, req.user?.id ? `u-${req.user.id}` : 'guest', excludedStoryIds.length]);
-  const cached = cache.get(key);
-  if (cached) return res.json({ success: true, ...cached });
+    recentReadStoryIds = normalizeObjectIdList(historyRows);
+    excludedStoryIds = normalizeObjectIdList([...excludedStoryIds, ...recentReadStoryIds]);
 
-  const storiesRaw = await Book.find({
-    status: 'published',
-    contentType: 'short_story',
-    ...(excludedStoryIds.length > 0 ? { _id: { $nin: excludedStoryIds } } : {})
-  })
-    .sort({ updatedAt: -1, totalViews: -1 })
-    .limit(limit * 3)
-    .select('title slug author category contentType tags coverImage language groupId readingTimeMinutes totalViews')
-    .lean();
+    if (recentReadStoryIds.length > 0) {
+      const readStories = await Book.find({
+        _id: { $in: recentReadStoryIds },
+        contentType: 'short_story',
+        status: 'published'
+      })
+        .select('tags')
+        .lean();
 
-  let candidateStories = storiesRaw;
-  if (candidateStories.length < limit) {
-    const fallbackStories = await Book.find({ status: 'published', contentType: 'short_story' })
-      .sort({ totalViews: -1, updatedAt: -1 })
-      .limit(limit * 3)
-      .select('title slug author category contentType tags coverImage language groupId readingTimeMinutes totalViews')
-      .lean();
-    const seen = new Set(candidateStories.map((item) => String(item._id)));
-    for (const fallbackStory of fallbackStories) {
-      const id = String(fallbackStory._id);
-      if (seen.has(id)) continue;
-      candidateStories.push(fallbackStory);
-      seen.add(id);
-      if (candidateStories.length >= limit * 3) break;
+      const tagCountMap = new Map();
+      for (const story of readStories) {
+        for (const tag of story.tags || []) {
+          const normalized = String(tag || '').trim().toLowerCase();
+          if (!normalized) continue;
+          tagCountMap.set(normalized, (tagCountMap.get(normalized) || 0) + 1);
+        }
+      }
+      preferredTags = Array.from(tagCountMap.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 8)
+        .map(([tag]) => tag);
+
+      const similarUsers = await StoryHistory.aggregate([
+        {
+          $match: {
+            userId: { $ne: new mongoose.Types.ObjectId(req.user.id) },
+            readAt: { $gte: historyCutoff },
+            storyId: { $in: recentReadStoryIds }
+          }
+        },
+        { $group: { _id: '$userId', overlapCount: { $sum: 1 } } },
+        { $sort: { overlapCount: -1 } },
+        { $limit: 20 }
+      ]);
+      similarUserIds = similarUsers.map((item) => item._id);
     }
   }
+
+  const key = cacheKey([
+    'short-stories-reel',
+    lang,
+    limit,
+    req.user?.id ? `u-${req.user.id}` : 'guest',
+    excludedStoryIds.length,
+    preferredTags.slice(0, 4).join('-')
+  ]);
+  const shouldUseCache = !req.user?.id && queryExcludedStoryIds.length === 0;
+  const cached = shouldUseCache ? cache.get(key) : null;
+  if (cached) return res.json({ success: true, ...cached });
+
+  const baseProjection = 'title slug author category contentType tags coverImage language groupId readingTimeMinutes totalViews updatedAt';
+  const recommendedStories = [];
+  const selectedIds = new Set(excludedStoryIds.map((item) => String(item)));
+  const pushStories = (stories = []) => {
+    for (const story of stories) {
+      const id = String(story._id);
+      if (selectedIds.has(id)) continue;
+      selectedIds.add(id);
+      recommendedStories.push(story);
+      if (recommendedStories.length >= limit * 3) break;
+    }
+  };
+
+  if (preferredTags.length > 0) {
+    const matchingByTag = await Book.aggregate([
+      {
+        $match: {
+          status: 'published',
+          contentType: 'short_story',
+          tags: { $in: preferredTags },
+          ...(excludedStoryIds.length > 0 ? { _id: { $nin: excludedStoryIds } } : {})
+        }
+      },
+      {
+        $addFields: {
+          tagOverlapScore: { $size: { $setIntersection: ['$tags', preferredTags] } },
+          randomJitter: { $rand: {} }
+        }
+      },
+      { $sort: { tagOverlapScore: -1, totalViews: -1, randomJitter: -1, updatedAt: -1 } },
+      { $limit: limit * 6 }
+    ]);
+    pushStories(matchingByTag);
+  }
+
+  if (recommendedStories.length < limit * 3 && similarUserIds.length > 0) {
+    const similarReads = await StoryHistory.aggregate([
+      {
+        $match: {
+          userId: { $in: similarUserIds },
+          readAt: { $gte: historyCutoff },
+          ...(excludedStoryIds.length > 0 ? { storyId: { $nin: excludedStoryIds } } : {})
+        }
+      },
+      { $group: { _id: '$storyId', readCount: { $sum: 1 }, latestReadAt: { $max: '$readAt' } } },
+      { $sort: { readCount: -1, latestReadAt: -1 } },
+      { $limit: limit * 8 }
+    ]);
+    const similarStoryIds = normalizeObjectIdList(similarReads.map((item) => item._id));
+    if (similarStoryIds.length > 0) {
+      const similarStories = await Book.find({
+        _id: { $in: similarStoryIds },
+        status: 'published',
+        contentType: 'short_story'
+      })
+        .select(baseProjection)
+        .lean();
+      const readCountById = new Map(similarReads.map((item) => [String(item._id), item.readCount]));
+      pushStories(randomizedSort(similarStories, (story) => readCountById.get(String(story._id)) || 0));
+    }
+  }
+
+  if (recommendedStories.length < limit * 3) {
+    const trendingStories = await Book.find({
+      status: 'published',
+      contentType: 'short_story',
+      ...(excludedStoryIds.length > 0 ? { _id: { $nin: excludedStoryIds } } : {})
+    })
+      .sort({ totalViews: -1, updatedAt: -1 })
+      .limit(limit * 6)
+      .select(baseProjection)
+      .lean();
+    pushStories(randomizedSort(trendingStories, (story) => Number(story.totalViews) || 0));
+  }
+
+  if (recommendedStories.length < limit) {
+    const latestStories = await Book.find({
+      status: 'published',
+      contentType: 'short_story',
+      ...(excludedStoryIds.length > 0 ? { _id: { $nin: excludedStoryIds } } : {})
+    })
+      .sort({ updatedAt: -1 })
+      .limit(limit * 6)
+      .select(baseProjection)
+      .lean();
+    pushStories(latestStories);
+  }
+
+  const candidateStories = recommendedStories;
 
   const grouped = new Map();
   for (const story of candidateStories) {
@@ -473,7 +608,7 @@ exports.getShortStoriesReel = asyncHandler(async (req, res) => {
     .filter(Boolean);
 
   const payload = { stories };
-  cache.set(key, payload);
+  if (shouldUseCache) cache.set(key, payload);
   res.json({ success: true, ...payload });
 });
 
