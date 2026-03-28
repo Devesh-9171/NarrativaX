@@ -779,6 +779,11 @@ export default function AdminPage() {
             <div key={request._id} className="rounded-xl border border-slate-200 p-3 dark:border-slate-800">
               <p className="font-semibold">{request.authorProfile?.penName || request.name} <span className="text-xs text-slate-500">({request.email})</span></p>
               <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{request.authorProfile?.bio}</p>
+              <div className="mt-2 space-y-1 text-xs text-slate-600 dark:text-slate-300">
+                <p><span className="font-semibold">UPI:</span> {request.authorProfile?.upiId || '—'}</p>
+                <p><span className="font-semibold">Bank:</span> {request.authorProfile?.bankDetails || '—'}</p>
+                <p><span className="font-semibold">International:</span> {request.authorProfile?.internationalPayment || '—'}</p>
+              </div>
               <div className="mt-2 flex gap-2">
                 <button type="button" onClick={async ()=>{if(!authHeaders) return; await api.post(`/admin/author-requests/${request._id}/review`,{action:'approve'},{headers:authHeaders});loadDashboard();}} className="rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white">Approve</button>
                 <button type="button" onClick={async ()=>{if(!authHeaders) return; await api.post(`/admin/author-requests/${request._id}/review`,{action:'reject'},{headers:authHeaders});loadDashboard();}} className="rounded-full bg-red-600 px-3 py-1 text-xs font-semibold text-white">Reject</button>

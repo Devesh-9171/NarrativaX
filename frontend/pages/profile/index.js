@@ -11,9 +11,13 @@ const initialAuthorForm = {
   fullName: '',
   penName: '',
   bio: '',
-  paymentDetails: '',
-  idImageFile: null,
   agreeToTerms: false
+};
+
+const initialPaymentForm = {
+  upiId: '',
+  bankDetails: '',
+  internationalPayment: ''
 };
 
 export default function ProfilePage() {
@@ -21,6 +25,9 @@ export default function ProfilePage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [authorForm, setAuthorForm] = useState(initialAuthorForm);
+  const [paymentForm, setPaymentForm] = useState(initialPaymentForm);
+  const [editingPayment, setEditingPayment] = useState(false);
+  const [savingPayment, setSavingPayment] = useState(false);
   const [submittingAuthor, setSubmittingAuthor] = useState(false);
   const [enablingTranslation, setEnablingTranslation] = useState(false);
   const [otp, setOtp] = useState('');
@@ -43,9 +50,13 @@ export default function ProfilePage() {
         ...current,
         fullName: currentUser?.authorProfile?.fullName || '',
         penName: currentUser?.authorProfile?.penName || '',
-        bio: currentUser?.authorProfile?.bio || '',
-        paymentDetails: currentUser?.authorProfile?.paymentDetails || ''
+        bio: currentUser?.authorProfile?.bio || ''
       }));
+      setPaymentForm({
+        upiId: currentUser?.authorProfile?.upiId || '',
+        bankDetails: currentUser?.authorProfile?.bankDetails || '',
+        internationalPayment: currentUser?.authorProfile?.internationalPayment || ''
+      });
     } catch (err) {
       setError(err.message || 'Failed to load profile');
     }
@@ -83,27 +94,39 @@ export default function ProfilePage() {
       if (!isEmailVerified) {
         throw new Error('Please verify your email before applying as author.');
       }
-      if (!authorForm.idImageFile && !me?.authorProfile?.idVerification) {
-        throw new Error('Government ID image is required.');
-      }
 
       const payload = new FormData();
       payload.append('fullName', authorForm.fullName.trim());
       payload.append('penName', authorForm.penName.trim());
       payload.append('bio', authorForm.bio.trim());
-      payload.append('paymentDetails', (authorForm.paymentDetails || '').trim());
       payload.append('agreeToTerms', String(Boolean(authorForm.agreeToTerms)));
-      if (authorForm.idImageFile) payload.append('idImage', authorForm.idImageFile);
 
       await api.post('/user/author/request', payload, { headers: { Authorization: `Bearer ${token}` } });
       setSuccess('Author request submitted. Waiting for admin approval.');
       setShowAuthorForm(false);
-      setAuthorForm((current) => ({ ...current, idImageFile: null, agreeToTerms: false }));
+      setAuthorForm((current) => ({ ...current, agreeToTerms: false }));
       await loadProfile();
     } catch (requestError) {
       setError(requestError.message || 'Could not submit author request.');
     } finally {
       setSubmittingAuthor(false);
+    }
+  };
+
+  const savePaymentDetails = async () => {
+    if (!token) return;
+    setError('');
+    setSuccess('');
+    try {
+      setSavingPayment(true);
+      await api.put('/user/author/payment-details', paymentForm, { headers: { Authorization: `Bearer ${token}` } });
+      setSuccess('Payment details updated.');
+      setEditingPayment(false);
+      await loadProfile();
+    } catch (requestError) {
+      setError(requestError.message || 'Could not update payment details.');
+    } finally {
+      setSavingPayment(false);
     }
   };
 
@@ -221,6 +244,79 @@ export default function ProfilePage() {
               <div className="mt-4 grid gap-2 sm:grid-cols-2">
                 <Link href="/author" className="rounded-xl border border-slate-300 px-4 py-3 text-center text-sm dark:border-slate-700">Open Author Workspace</Link>
               </div>
+
+              <div className="mt-6 rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-lg font-semibold">Payment Details</h3>
+                  {editingPayment ? (
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingPayment(false);
+                          setPaymentForm({
+                            upiId: me?.authorProfile?.upiId || '',
+                            bankDetails: me?.authorProfile?.bankDetails || '',
+                            internationalPayment: me?.authorProfile?.internationalPayment || ''
+                          });
+                        }}
+                        className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold dark:border-slate-700"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={savePaymentDetails}
+                        disabled={savingPayment}
+                        className="rounded-full bg-brand-600 px-4 py-2 text-xs font-semibold text-white disabled:opacity-60"
+                      >
+                        {savingPayment ? 'Saving...' : 'Save'}
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setEditingPayment(true)}
+                      className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold dark:border-slate-700"
+                    >
+                      Edit
+                    </button>
+                  )}
+                </div>
+
+                <div className="mt-4 grid gap-3">
+                  <div>
+                    <label className="mb-1 block text-sm font-medium">UPI ID</label>
+                    <input
+                      className={INPUT_CLASS}
+                      value={paymentForm.upiId}
+                      onChange={(event) => setPaymentForm((current) => ({ ...current, upiId: event.target.value }))}
+                      placeholder="yourname@upi"
+                      disabled={!editingPayment}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium">Bank Details (optional)</label>
+                    <textarea
+                      className={`${INPUT_CLASS} min-h-[90px]`}
+                      value={paymentForm.bankDetails}
+                      onChange={(event) => setPaymentForm((current) => ({ ...current, bankDetails: event.target.value }))}
+                      placeholder="Account holder name, bank, account number, IFSC, etc."
+                      disabled={!editingPayment}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium">International Payment</label>
+                    <input
+                      className={INPUT_CLASS}
+                      value={paymentForm.internationalPayment}
+                      onChange={(event) => setPaymentForm((current) => ({ ...current, internationalPayment: event.target.value }))}
+                      placeholder="PayPal email or other payment handle"
+                      disabled={!editingPayment}
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
@@ -245,17 +341,6 @@ export default function ProfilePage() {
                     <input className={INPUT_CLASS} placeholder="Pen name" value={authorForm.penName} onChange={(e) => setAuthorForm((c) => ({ ...c, penName: e.target.value }))} required />
                   </div>
                   <textarea className={`${INPUT_CLASS} mt-3 min-h-[100px]`} placeholder="Bio (optional)" value={authorForm.bio} onChange={(e) => setAuthorForm((c) => ({ ...c, bio: e.target.value }))} />
-                  <input className={`${INPUT_CLASS} mt-3`} placeholder="Payment details (optional)" value={authorForm.paymentDetails} onChange={(e) => setAuthorForm((c) => ({ ...c, paymentDetails: e.target.value }))} />
-                  <div className="mt-3">
-                    <label className="mb-1 block text-sm font-medium">Government ID image *</label>
-                    <input
-                      className={INPUT_CLASS}
-                      type="file"
-                      accept="image/png,image/jpeg,image/webp"
-                      onChange={(e) => setAuthorForm((c) => ({ ...c, idImageFile: e.target.files?.[0] || null }))}
-                      required={!me?.authorProfile?.idVerification}
-                    />
-                  </div>
                   <label className="mt-3 flex items-center gap-2 text-sm">
                     <input type="checkbox" checked={authorForm.agreeToTerms} onChange={(e) => setAuthorForm((c) => ({ ...c, agreeToTerms: e.target.checked }))} />
                     I agree to Terms & Conditions

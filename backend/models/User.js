@@ -5,8 +5,9 @@ const authorProfileSchema = new mongoose.Schema(
     fullName: { type: String, trim: true },
     penName: { type: String, trim: true },
     bio: { type: String, trim: true, maxlength: 2000 },
-    paymentDetails: { type: String, trim: true, maxlength: 500 },
-    idVerification: { type: String, trim: true, maxlength: 1000 },
+    upiId: { type: String, trim: true, maxlength: 150 },
+    bankDetails: { type: String, trim: true, maxlength: 500 },
+    internationalPayment: { type: String, trim: true, maxlength: 250 },
     translationPermissionGrantedAt: { type: Date }
   },
   { _id: false }
