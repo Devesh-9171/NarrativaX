@@ -1,5 +1,6 @@
 const ShortStory = require('../models/ShortStory');
 const User = require('../models/User');
+const StoryHistory = require('../models/StoryHistory');
 const asyncHandler = require('../utils/asyncHandler');
 const AppError = require('../utils/AppError');
 const { uploadImageBuffer } = require('../utils/cloudinaryAssets');
@@ -97,34 +98,36 @@ exports.getPublishedShortStory = asyncHandler(async (req, res) => {
 exports.completeShortStoryView = asyncHandler(async (req, res) => {
   const { shortStoryId, progress = 100, status = 'read' } = req.body;
   if (!shortStoryId) throw new AppError('shortStoryId is required', 400);
-  if (Number(progress) < 100 || status === 'skipped') {
+  const numericProgress = Number(progress);
+  if (numericProgress < 70 || status === 'skipped') {
     return res.json({ success: true, message: 'Partial or skipped read not counted as a view' });
   }
 
-  const story = await ShortStory.findByIdAndUpdate(shortStoryId, { $inc: { views: 1 } }, { new: true }).lean();
-  if (!story || story.status !== 'published') throw new AppError('Short story not found', 404);
+  const story = await ShortStory.findOne({ _id: shortStoryId, status: 'published' }).select('_id views').lean();
+  if (!story) throw new AppError('Short story not found', 404);
+
+  let nextViews = story.views;
+  if (numericProgress >= 100) {
+    const incremented = await ShortStory.findByIdAndUpdate(story._id, { $inc: { views: 1 } }, { new: true })
+      .select('views')
+      .lean();
+    nextViews = incremented?.views || nextViews;
+  }
 
   if (req.user?.id) {
-    await User.updateOne(
-      { _id: req.user.id },
+    await StoryHistory.updateOne(
       {
-        $pull: { shortStoryHistory: { shortStoryId: story._id } }
-      }
-    );
-    await User.updateOne(
-      { _id: req.user.id },
+        userId: req.user.id,
+        storyId: story._id
+      },
       {
-        $push: {
-          shortStoryHistory: {
-            shortStoryId: story._id,
-            status: 'read',
-            completedAt: new Date(),
-            updatedAt: new Date()
-          }
+        $setOnInsert: {
+          readAt: new Date()
         }
-      }
+      },
+      { upsert: true }
     );
   }
 
-  res.json({ success: true, views: story.views });
+  res.json({ success: true, views: nextViews });
 });

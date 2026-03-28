@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const mongoose = require('mongoose');
 const Book = require('../models/Book');
 const Chapter = require('../models/Chapter');
+const StoryHistory = require('../models/StoryHistory');
 const User = require('../models/User');
 const asyncHandler = require('../utils/asyncHandler');
 const AppError = require('../utils/AppError');
@@ -381,18 +382,52 @@ exports.getBooks = asyncHandler(async (req, res) => {
 exports.getShortStoriesReel = asyncHandler(async (req, res) => {
   const lang = normalizeLanguage(req.query.lang, DEFAULT_LANGUAGE);
   const limit = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 24, 5), 60);
-  const key = cacheKey(['short-stories-reel', lang, limit]);
+  const historyCutoff = new Date(Date.now() - (1000 * 60 * 60 * 24 * 30 * 6));
+  let excludedStoryIds = [];
+
+  if (req.user?.id) {
+    excludedStoryIds = await StoryHistory.find({
+      userId: req.user.id,
+      readAt: { $gte: historyCutoff }
+    })
+      .select('storyId')
+      .lean()
+      .then((rows) => rows.map((row) => row.storyId));
+  }
+
+  const key = cacheKey(['short-stories-reel', lang, limit, req.user?.id ? `u-${req.user.id}` : 'guest', excludedStoryIds.length]);
   const cached = cache.get(key);
   if (cached) return res.json({ success: true, ...cached });
 
-  const storiesRaw = await Book.find({ status: 'published', contentType: 'short_story' })
+  const storiesRaw = await Book.find({
+    status: 'published',
+    contentType: 'short_story',
+    ...(excludedStoryIds.length > 0 ? { _id: { $nin: excludedStoryIds } } : {})
+  })
     .sort({ updatedAt: -1, totalViews: -1 })
     .limit(limit * 3)
     .select('title slug author category contentType tags coverImage language groupId readingTimeMinutes totalViews')
     .lean();
 
+  let candidateStories = storiesRaw;
+  if (candidateStories.length < limit) {
+    const fallbackStories = await Book.find({ status: 'published', contentType: 'short_story' })
+      .sort({ totalViews: -1, updatedAt: -1 })
+      .limit(limit * 3)
+      .select('title slug author category contentType tags coverImage language groupId readingTimeMinutes totalViews')
+      .lean();
+    const seen = new Set(candidateStories.map((item) => String(item._id)));
+    for (const fallbackStory of fallbackStories) {
+      const id = String(fallbackStory._id);
+      if (seen.has(id)) continue;
+      candidateStories.push(fallbackStory);
+      seen.add(id);
+      if (candidateStories.length >= limit * 3) break;
+    }
+  }
+
   const grouped = new Map();
-  for (const story of storiesRaw) {
+  for (const story of candidateStories) {
     const groupKey = story.groupId || String(story._id);
     if (!grouped.has(groupKey)) grouped.set(groupKey, []);
     grouped.get(groupKey).push(story);

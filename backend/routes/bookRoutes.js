@@ -10,7 +10,7 @@ router.post('/', authMiddleware, requireRole('author'), uploadSingleImage('cover
 router.put('/:id', authMiddleware, requireRole('author'), uploadSingleImage('coverImage'), controller.updateBook);
 router.delete('/:id', authMiddleware, requireAdmin, controller.deleteBook);
 router.get('/homepage', controller.getHomepage);
-router.get('/short-stories/reel', controller.getShortStoriesReel);
+router.get('/short-stories/reel', auth.optionalAuth, controller.getShortStoriesReel);
 router.get('/', controller.getBooks);
 router.get('/category/:slug', controller.getCategoryBooks);
 router.post('/recalculate-trending', auth('admin'), controller.recalculateTrending);
