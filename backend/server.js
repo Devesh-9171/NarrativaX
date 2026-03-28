@@ -10,6 +10,7 @@ const { notFound, errorHandler } = require('./middleware/errorMiddleware');
 const Book = require('./models/Book');
 const Chapter = require('./models/Chapter');
 const ShortStory = require('./models/ShortStory');
+const Payment = require('./models/Payment');
 
 const app = express();
 let isDatabaseConnected = mongoose.connection.readyState === 1;
@@ -62,7 +63,7 @@ function buildHealthPayload() {
 }
 
 async function syncDatabaseIndexes() {
-  await Promise.all([Book.syncIndexes(), Chapter.syncIndexes(), ShortStory.syncIndexes()]);
+  await Promise.all([Book.syncIndexes(), Chapter.syncIndexes(), ShortStory.syncIndexes(), Payment.syncIndexes()]);
 }
 
 async function connectDatabaseWithRetry() {

@@ -6,6 +6,7 @@ const Chapter = require('../models/Chapter');
 const BlogPost = require('../models/BlogPost');
 const ShortStory = require('../models/ShortStory');
 const User = require('../models/User');
+const Payment = require('../models/Payment');
 const asyncHandler = require('../utils/asyncHandler');
 const AppError = require('../utils/AppError');
 const { cache } = require('../utils/cache');
@@ -273,6 +274,21 @@ function normalizeCount(value) {
   return Math.floor(value);
 }
 
+function getCurrentMonthMetadata(date = new Date()) {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const monthLabel = new Intl.DateTimeFormat('en-US', {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC'
+  }).format(date);
+
+  return {
+    monthKey: `${year}-${month}`,
+    monthLabel
+  };
+}
+
 exports.getAuthorAnalytics = asyncHandler(async (_req, res) => {
   const authors = await User.find({
     $or: [{ role: 'author' }, { authorStatus: 'approved' }]
@@ -281,17 +297,120 @@ exports.getAuthorAnalytics = asyncHandler(async (_req, res) => {
     .select('name email monthlyViews lifetimeViews totalPaidAmount authorProfile updatedAt')
     .lean();
 
+  const authorIds = authors.map((author) => author._id);
+  const payments = authorIds.length > 0
+    ? await Payment.find({ authorId: { $in: authorIds } })
+      .sort({ paidAt: -1 })
+      .select('authorId month monthlyViews amount status paidAt')
+      .lean()
+    : [];
+
+  const paymentMap = payments.reduce((accumulator, payment) => {
+    const key = String(payment.authorId);
+    if (!accumulator[key]) accumulator[key] = [];
+    accumulator[key].push({
+      _id: payment._id,
+      month: payment.month,
+      monthlyViews: normalizeCount(Number(payment.monthlyViews)),
+      amount: normalizeMoney(Number(payment.amount)),
+      status: payment.status,
+      paidAt: payment.paidAt
+    });
+    return accumulator;
+  }, {});
+
   const data = authors.map((author) => ({
     ...author,
     monthlyViews: normalizeCount(Number(author.monthlyViews)),
     lifetimeViews: normalizeCount(Number(author.lifetimeViews)),
     totalPaidAmount: normalizeMoney(Number(author.totalPaidAmount)),
+    paymentHistory: paymentMap[String(author._id)] || [],
     authorProfile: {
       upiId: author.authorProfile?.upiId || '',
       bankDetails: author.authorProfile?.bankDetails || '',
       internationalPayment: author.authorProfile?.internationalPayment || ''
     }
   }));
+
+  res.json({ success: true, data });
+});
+
+exports.markAuthorPaymentAsPaid = asyncHandler(async (req, res) => {
+  const { amount } = req.body || {};
+  const normalizedAmount = Number(amount);
+  if (!Number.isFinite(normalizedAmount) || normalizedAmount <= 0) {
+    throw new AppError('Amount must be greater than 0', 400);
+  }
+
+  const author = await User.findOne({
+    _id: req.params.authorId,
+    $or: [{ role: 'author' }, { authorStatus: 'approved' }]
+  }).select('_id monthlyViews totalPaidAmount paymentRecords');
+
+  if (!author) throw new AppError('Author not found', 404);
+
+  const { monthKey, monthLabel } = getCurrentMonthMetadata();
+  const existingPayment = await Payment.findOne({ authorId: author._id, monthKey }).select('_id').lean();
+  if (existingPayment) {
+    throw new AppError(`Payment already exists for ${monthLabel}`, 409);
+  }
+
+  const paidAt = new Date();
+  const monthlyViews = normalizeCount(Number(author.monthlyViews));
+  const payment = await Payment.create({
+    authorId: author._id,
+    month: monthLabel,
+    monthKey,
+    monthlyViews,
+    amount: normalizedAmount,
+    status: 'paid',
+    paidAt
+  });
+
+  author.totalPaidAmount = normalizeMoney(Number(author.totalPaidAmount)) + normalizedAmount;
+  author.paymentRecords = [
+    ...(author.paymentRecords || []),
+    {
+      amount: normalizedAmount,
+      paidAt,
+      note: `Manual payout for ${monthLabel}`,
+      reference: `payment:${payment._id}`
+    }
+  ];
+  await author.save();
+
+  res.status(201).json({
+    success: true,
+    message: 'Payment marked as paid',
+    data: {
+      payment: {
+        _id: payment._id,
+        authorId: payment.authorId,
+        month: payment.month,
+        monthlyViews: payment.monthlyViews,
+        amount: payment.amount,
+        status: payment.status,
+        paidAt: payment.paidAt
+      },
+      totalPaidAmount: author.totalPaidAmount
+    }
+  });
+});
+
+exports.getAuthorPaymentHistory = asyncHandler(async (req, res) => {
+  const author = await User.findOne({
+    _id: req.params.authorId,
+    $or: [{ role: 'author' }, { authorStatus: 'approved' }]
+  })
+    .select('_id')
+    .lean();
+
+  if (!author) throw new AppError('Author not found', 404);
+
+  const data = await Payment.find({ authorId: author._id })
+    .sort({ paidAt: -1 })
+    .select('month monthlyViews amount status paidAt')
+    .lean();
 
   res.json({ success: true, data });
 });

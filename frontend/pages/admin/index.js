@@ -70,6 +70,18 @@ function formatDate(date) {
   }).format(new Date(date));
 }
 
+function formatDateTime(date) {
+  if (!date) return '—';
+
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit'
+  }).format(new Date(date));
+}
+
 function getBookGroupKey(book) {
   return book?.groupId || book?._id || '';
 }
@@ -209,6 +221,9 @@ export default function AdminPage() {
   const [translationStats, setTranslationStats] = useState([]);
   const [editBookImageFile, setEditBookImageFile] = useState(null);
   const [editBlogImageFile, setEditBlogImageFile] = useState(null);
+  const [paymentAmounts, setPaymentAmounts] = useState({});
+  const [processingPaymentAuthorId, setProcessingPaymentAuthorId] = useState('');
+  const [paymentFeedback, setPaymentFeedback] = useState({});
 
   const authHeaders = useMemo(() => (token ? { Authorization: `Bearer ${token}` } : null), [token]);
 
@@ -236,6 +251,7 @@ export default function AdminPage() {
     setFormError('');
     setListError('');
     setSuccessMessage('');
+    setPaymentFeedback({});
   };
 
   const loadDashboard = useCallback(async () => {
@@ -294,6 +310,36 @@ export default function AdminPage() {
     if (user?.role !== 'admin') return;
     loadDashboard();
   }, [authLoading, loadDashboard, token, user?.role]);
+
+  const markAuthorAsPaid = async (authorId) => {
+    if (!authHeaders || !authorId) return;
+
+    const rawAmount = String(paymentAmounts[authorId] || '').trim();
+    if (!rawAmount) {
+      setPaymentFeedback((current) => ({ ...current, [authorId]: 'Please enter an amount.' }));
+      return;
+    }
+
+    const amount = Number(rawAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setPaymentFeedback((current) => ({ ...current, [authorId]: 'Amount must be greater than 0.' }));
+      return;
+    }
+
+    try {
+      setProcessingPaymentAuthorId(authorId);
+      setPaymentFeedback((current) => ({ ...current, [authorId]: '' }));
+      const response = await api.post(`/admin/authors/${authorId}/payments`, { amount }, { headers: authHeaders });
+      setPaymentAmounts((current) => ({ ...current, [authorId]: '' }));
+      setPaymentFeedback((current) => ({ ...current, [authorId]: '' }));
+      setSuccessMessage(response.data?.message || 'Payment marked as paid.');
+      await loadDashboard();
+    } catch (error) {
+      setPaymentFeedback((current) => ({ ...current, [authorId]: error.message || 'Could not mark payment as paid.' }));
+    } finally {
+      setProcessingPaymentAuthorId('');
+    }
+  };
 
   const submitBook = async (event) => {
     event.preventDefault();
@@ -810,7 +856,7 @@ export default function AdminPage() {
                   <th className="px-4 py-3 font-semibold">Email</th>
                   <th className="px-4 py-3 font-semibold">Views (Monthly / Lifetime)</th>
                   <th className="px-4 py-3 font-semibold">Total Paid</th>
-                  <th className="px-4 py-3 font-semibold">Payment Info</th>
+                  <th className="px-4 py-3 font-semibold">Payment Management</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-900">
@@ -823,13 +869,73 @@ export default function AdminPage() {
                     </td>
                     <td className="px-4 py-3 text-slate-700 dark:text-slate-300">₹{(Number.isFinite(author.totalPaidAmount) ? author.totalPaidAmount : 0).toLocaleString('en-IN')}</td>
                     <td className="px-4 py-3 text-xs text-slate-600 dark:text-slate-300">
-                      <details>
+                      <div className="space-y-2 rounded-xl border border-slate-200 p-3 dark:border-slate-800">
+                        <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300" htmlFor={`payment-amount-${author._id}`}>
+                          Enter Amount
+                        </label>
+                        <input
+                          id={`payment-amount-${author._id}`}
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900 outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:border-sky-400 dark:focus:ring-sky-400/10"
+                          placeholder="Enter amount"
+                          value={paymentAmounts[author._id] || ''}
+                          onChange={(event) => {
+                            const { value } = event.target;
+                            setPaymentAmounts((current) => ({ ...current, [author._id]: value }));
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => markAuthorAsPaid(author._id)}
+                          disabled={processingPaymentAuthorId === author._id}
+                          className="rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-500 disabled:opacity-60"
+                        >
+                          {processingPaymentAuthorId === author._id ? 'Saving...' : 'Mark as Paid'}
+                        </button>
+                        {paymentFeedback[author._id] ? (
+                          <p className="text-xs text-red-600 dark:text-red-300">{paymentFeedback[author._id]}</p>
+                        ) : null}
+                      </div>
+                      <details className="mt-3">
                         <summary className="cursor-pointer font-semibold text-slate-700 dark:text-slate-200">View details</summary>
                         <div className="mt-2 space-y-1">
                           <p><span className="font-semibold">UPI:</span> {author.authorProfile?.upiId || 'Not added'}</p>
                           <p><span className="font-semibold">Bank:</span> {author.authorProfile?.bankDetails || 'Not added'}</p>
                           <p><span className="font-semibold">International:</span> {author.authorProfile?.internationalPayment || 'Not added'}</p>
                         </div>
+                      </details>
+                      <details className="mt-3">
+                        <summary className="cursor-pointer font-semibold text-slate-700 dark:text-slate-200">View payment history</summary>
+                        {Array.isArray(author.paymentHistory) && author.paymentHistory.length > 0 ? (
+                          <div className="mt-2 overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
+                            <table className="min-w-full divide-y divide-slate-200 text-left text-xs dark:divide-slate-800">
+                              <thead className="bg-slate-50 dark:bg-slate-900">
+                                <tr>
+                                  <th className="px-2 py-2 font-semibold">Month</th>
+                                  <th className="px-2 py-2 font-semibold">Views</th>
+                                  <th className="px-2 py-2 font-semibold">Amount</th>
+                                  <th className="px-2 py-2 font-semibold">Status</th>
+                                  <th className="px-2 py-2 font-semibold">Paid Date</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100 dark:divide-slate-900">
+                                {author.paymentHistory.map((payment) => (
+                                  <tr key={payment._id}>
+                                    <td className="px-2 py-2">{payment.month}</td>
+                                    <td className="px-2 py-2">{(Number.isFinite(payment.monthlyViews) ? payment.monthlyViews : 0).toLocaleString()}</td>
+                                    <td className="px-2 py-2">₹{(Number.isFinite(payment.amount) ? payment.amount : 0).toLocaleString('en-IN')}</td>
+                                    <td className="px-2 py-2 capitalize">{payment.status || 'paid'}</td>
+                                    <td className="px-2 py-2">{formatDateTime(payment.paidAt)}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        ) : (
+                          <p className="mt-2 text-xs text-slate-500">No payment history yet.</p>
+                        )}
                       </details>
                     </td>
                   </tr>
