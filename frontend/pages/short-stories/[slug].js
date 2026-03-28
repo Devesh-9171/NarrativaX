@@ -5,6 +5,7 @@ import Layout from '../../components/Layout';
 import SeoHead from '../../components/SeoHead';
 import api from '../../utils/api';
 import { buildMeta } from '../../utils/seo';
+import { useAuth } from '../../context/AuthContext';
 
 const HISTORY_KEY = 'short-story-history-v1';
 const COUNTDOWN_SECONDS = 3;
@@ -50,20 +51,49 @@ function rankStories(stories, currentStory, history) {
 
 export default function ShortStoryReelPage({ stories, slug }) {
   const router = useRouter();
+  const { token } = useAuth();
   const scrollerRef = useRef(null);
+  const completionRef = useRef({});
   const [showNextPopup, setShowNextPopup] = useState(false);
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
   const [cancelled, setCancelled] = useState(false);
   const [history, setHistory] = useState([]);
+  const [storyFeed, setStoryFeed] = useState(Array.isArray(stories) ? stories : []);
 
-  const currentStory = useMemo(() => stories.find((story) => story.slug === slug) || stories[0] || null, [slug, stories]);
-  const rankedStories = useMemo(() => rankStories(stories, currentStory, history), [stories, currentStory, history]);
+  useEffect(() => {
+    setStoryFeed(Array.isArray(stories) ? stories : []);
+  }, [stories]);
+
+  const currentStory = useMemo(() => storyFeed.find((story) => story.slug === slug) || storyFeed[0] || null, [slug, storyFeed]);
+  const rankedStories = useMemo(() => rankStories(storyFeed, currentStory, history), [storyFeed, currentStory, history]);
   const previousStory = useMemo(() => {
     const currentIndex = history.findIndex((entry) => entry.slug === currentStory?.slug);
-    if (currentIndex > 0) return stories.find((story) => story.slug === history[currentIndex - 1].slug) || null;
+    if (currentIndex > 0) return storyFeed.find((story) => story.slug === history[currentIndex - 1].slug) || null;
     return null;
-  }, [currentStory?.slug, history, stories]);
+  }, [currentStory?.slug, history, storyFeed]);
   const nextStory = rankedStories[0] || null;
+
+  useEffect(() => {
+    let cancelledRequest = false;
+    const fetchPersonalizedFeed = async () => {
+      if (!token) return;
+      try {
+        const response = await api.get('/books/short-stories/reel', {
+          params: { limit: 36 },
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (cancelledRequest) return;
+        setStoryFeed(response.data?.stories || []);
+      } catch (_error) {
+        // Keep SSR feed as fallback when personalized query fails.
+      }
+    };
+
+    fetchPersonalizedFeed();
+    return () => {
+      cancelledRequest = true;
+    };
+  }, [token]);
 
   useEffect(() => {
     setHistory(parseHistory());
@@ -93,14 +123,35 @@ export default function ShortStoryReelPage({ stories, slug }) {
     const node = scrollerRef.current;
     if (!node || !currentStory || cancelled) return undefined;
 
+    const markStoryRead = async (progressValue) => {
+      if (!currentStory?._id || completionRef.current[currentStory._id]) return;
+      if (progressValue < 70) return;
+      completionRef.current[currentStory._id] = true;
+      try {
+        await api.post('/short-stories/complete-view', {
+          shortStoryId: currentStory._id,
+          progress: progressValue,
+          status: 'read'
+        }, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined);
+      } catch (_error) {
+        completionRef.current[currentStory._id] = false;
+      }
+    };
+
     const onScroll = () => {
+      const maxScrollable = Math.max(node.scrollHeight - node.clientHeight, 1);
+      const currentProgress = Math.min(100, Math.max(0, Math.round((node.scrollTop / maxScrollable) * 100)));
       const gapToBottom = node.scrollHeight - node.scrollTop - node.clientHeight;
+      if (currentProgress >= 70 || gapToBottom <= 2) {
+        markStoryRead(gapToBottom <= 2 ? 100 : currentProgress);
+      }
       if (gapToBottom <= 48) setShowNextPopup(true);
     };
 
     node.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
     return () => node.removeEventListener('scroll', onScroll);
-  }, [currentStory, cancelled]);
+  }, [currentStory, cancelled, token]);
 
   useEffect(() => {
     if (!showNextPopup || cancelled || !nextStory) return undefined;

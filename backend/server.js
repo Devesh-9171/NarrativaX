@@ -10,6 +10,7 @@ const { notFound, errorHandler } = require('./middleware/errorMiddleware');
 const Book = require('./models/Book');
 const Chapter = require('./models/Chapter');
 const ShortStory = require('./models/ShortStory');
+const StoryHistory = require('./models/StoryHistory');
 const Payment = require('./models/Payment');
 const ReadingProgress = require('./models/ReadingProgress');
 
@@ -64,7 +65,14 @@ function buildHealthPayload() {
 }
 
 async function syncDatabaseIndexes() {
-  await Promise.all([Book.syncIndexes(), Chapter.syncIndexes(), ShortStory.syncIndexes(), Payment.syncIndexes(), ReadingProgress.syncIndexes()]);
+  await Promise.all([
+    Book.syncIndexes(),
+    Chapter.syncIndexes(),
+    ShortStory.syncIndexes(),
+    StoryHistory.syncIndexes(),
+    Payment.syncIndexes(),
+    ReadingProgress.syncIndexes()
+  ]);
 }
 
 async function connectDatabaseWithRetry() {
