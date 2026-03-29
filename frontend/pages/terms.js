@@ -4,51 +4,58 @@ const termsSections = [
   {
     title: '1. Introduction',
     paragraphs: [
-      'Welcome to ReadNovaX. By accessing or using our platform, you agree to comply with and be bound by these Terms & Conditions.'
+      'Welcome to ReadNovaX. These Terms & Conditions apply to all visitors, readers, and registered users of our platform.',
+      'By accessing or using ReadNovaX, you agree to comply with these Terms & Conditions and all applicable laws.'
     ]
   },
   {
-    title: '2. Content Ownership',
+    title: '2. Platform Usage Rules',
     paragraphs: [
-      'All authors retain ownership of their content. However, by publishing on ReadNovaX, you grant us the right to display, distribute, and promote your content on our platform.'
+      'You agree to use ReadNovaX in a lawful and respectful manner and must not misuse the platform, attempt unauthorized access, or interfere with service operations.',
+      'ReadNovaX may suspend, restrict, or terminate access for users who violate platform rules, abuse features, or harm other users.'
     ]
   },
   {
-    title: '3. Author Responsibility',
+    title: '3. Content Usage',
     paragraphs: [
-      'Authors are solely responsible for the content they publish. All content must be original and must not violate any copyright, trademark, or intellectual property rights.',
-      'Any form of plagiarism, copied content, or unauthorized use of material is strictly prohibited.'
+      'All content available on ReadNovaX is provided for personal reading and discovery unless otherwise permitted by the content owner or law.',
+      'You must not copy, reproduce, redistribute, or commercially exploit content from the platform without proper authorization.'
     ]
   },
   {
-    title: '4. Platform Rights',
+    title: '4. Account Rules',
+    paragraphs: ['If you create an account, you are responsible for maintaining account security and accurate profile information.'],
+    items: [
+      'Keep your login credentials secure and confidential',
+      'Provide truthful registration details and keep them updated',
+      'Avoid creating multiple accounts for abuse, fraud, or policy evasion',
+      'Accept responsibility for activities performed through your account'
+    ]
+  },
+  {
+    title: '5. Liability & Disclaimer',
+    paragraphs: [
+      'ReadNovaX is provided on an “as available” basis. While we strive for reliability and quality, uninterrupted access is not guaranteed.',
+      'To the maximum extent permitted by law, ReadNovaX is not liable for indirect, incidental, or consequential losses arising from platform usage.'
+    ]
+  },
+  {
+    title: '6. Platform Rights',
     paragraphs: ['ReadNovaX reserves the right to:'],
     items: [
-      'Remove any content that violates our policies',
-      'Suspend or terminate author accounts without prior notice',
-      'Take necessary actions against misuse of the platform'
+      'Moderate, remove, or restrict access to content or accounts that violate policies or law',
+      'Update platform features, services, and terms as needed',
+      'Take necessary action to protect users, content owners, and platform integrity'
     ]
   },
   {
-    title: '5. Payments',
+    title: '7. Privacy',
     paragraphs: [
-      'Payments to authors are based on platform-defined metrics (such as views) and are managed manually. ReadNovaX reserves the right to modify payment structures at any time.'
+      'Your use of ReadNovaX is also governed by our Privacy Policy, which explains how user data is collected and used.'
     ]
   },
   {
-    title: '6. Limitation of Liability',
-    paragraphs: [
-      'ReadNovaX is not responsible for any legal issues arising from user-generated content. Authors bear full responsibility for their submissions.'
-    ]
-  },
-  {
-    title: '7. Account Suspension',
-    paragraphs: [
-      'Accounts found violating terms (including plagiarism or misuse) may be suspended or permanently banned.'
-    ]
-  },
-  {
-    title: '8. Changes to Terms',
+    title: '8. Changes to Terms & Conditions',
     paragraphs: [
       'We may update these Terms & Conditions at any time. Continued use of the platform means you accept the updated terms.'
     ]
@@ -65,7 +72,7 @@ export default function TermsPage() {
   return (
     <InfoPage
       title="Terms & Conditions – ReadNovaX"
-      description="Review the official Terms & Conditions for ReadNovaX, including author obligations, platform rights, content ownership, payments, and account enforcement rules."
+      description="Review the official Terms & Conditions for ReadNovaX, including platform usage rules, content usage, liability, and account rules for all users."
       path="/terms"
     >
       <p className="text-sm font-medium uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
