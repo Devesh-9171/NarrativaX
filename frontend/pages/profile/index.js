@@ -46,6 +46,7 @@ export default function ProfilePage() {
   const [resendingOtp, setResendingOtp] = useState(false);
   const [otpCooldown, setOtpCooldown] = useState(0);
   const [showAuthorForm, setShowAuthorForm] = useState(false);
+  const [authorFormErrors, setAuthorFormErrors] = useState({ fullName: '', penName: '' });
   const router = useRouter();
   const { user, token, refreshUser, clearAuthState, setToken } = useAuth();
 
@@ -97,6 +98,7 @@ export default function ProfilePage() {
     event.preventDefault();
     setError('');
     setSuccess('');
+    setAuthorFormErrors({ fullName: '', penName: '' });
 
     if (!token) return;
 
@@ -106,13 +108,27 @@ export default function ProfilePage() {
         throw new Error('Please verify your email before applying as author.');
       }
 
-      const payload = new FormData();
-      payload.append('fullName', authorForm.fullName.trim());
-      payload.append('penName', authorForm.penName.trim());
-      payload.append('bio', authorForm.bio.trim());
-      payload.append('agreeToTerms', String(Boolean(authorForm.agreeToTerms)));
+      const fullName = authorForm.fullName.trim();
+      const penName = authorForm.penName.trim();
+      const bio = authorForm.bio.trim();
 
-      await api.post('/user/author/request', payload, { headers: { Authorization: `Bearer ${token}` } });
+      // Temporary debug to verify submit payload values.
+      // eslint-disable-next-line no-console
+      console.log(fullName, penName);
+
+      if (fullName === '' || penName === '') {
+        setAuthorFormErrors({
+          fullName: fullName === '' ? 'Full name is required.' : '',
+          penName: penName === '' ? 'Pen name is required.' : ''
+        });
+        throw new Error('Please fill in all required fields.');
+      }
+
+      await api.post(
+        '/user/author/request',
+        { fullName, penName, bio, agreeToTerms: Boolean(authorForm.agreeToTerms) },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
       setSuccess('Author request submitted. Waiting for admin approval.');
       setShowAuthorForm(false);
       setAuthorForm((current) => ({ ...current, agreeToTerms: false }));
@@ -355,8 +371,34 @@ export default function ProfilePage() {
               {showAuthorForm ? (
                 <form onSubmit={submitAuthorRequest} className="mt-4">
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <input className={INPUT_CLASS} placeholder="Full name" value={authorForm.fullName} onChange={(e) => setAuthorForm((c) => ({ ...c, fullName: e.target.value }))} required />
-                    <input className={INPUT_CLASS} placeholder="Pen name" value={authorForm.penName} onChange={(e) => setAuthorForm((c) => ({ ...c, penName: e.target.value }))} required />
+                    <div>
+                      <input
+                        className={INPUT_CLASS}
+                        placeholder="Full name"
+                        value={authorForm.fullName}
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          setAuthorForm((current) => ({ ...current, fullName: value }));
+                          if (authorFormErrors.fullName) setAuthorFormErrors((current) => ({ ...current, fullName: '' }));
+                        }}
+                        required
+                      />
+                      {authorFormErrors.fullName ? <p className="mt-1 text-xs text-red-600 dark:text-red-300">{authorFormErrors.fullName}</p> : null}
+                    </div>
+                    <div>
+                      <input
+                        className={INPUT_CLASS}
+                        placeholder="Pen name"
+                        value={authorForm.penName}
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          setAuthorForm((current) => ({ ...current, penName: value }));
+                          if (authorFormErrors.penName) setAuthorFormErrors((current) => ({ ...current, penName: '' }));
+                        }}
+                        required
+                      />
+                      {authorFormErrors.penName ? <p className="mt-1 text-xs text-red-600 dark:text-red-300">{authorFormErrors.penName}</p> : null}
+                    </div>
                   </div>
                   <textarea className={`${INPUT_CLASS} mt-3 min-h-[100px]`} placeholder="Bio (optional)" value={authorForm.bio} onChange={(e) => setAuthorForm((c) => ({ ...c, bio: e.target.value }))} />
                   <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900">
