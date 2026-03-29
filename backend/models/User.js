@@ -25,6 +25,11 @@ const userSchema = new mongoose.Schema(
     role: { type: String, enum: ['user', 'author', 'admin'], default: 'user' },
     authorStatus: { type: String, enum: ['none', 'pending', 'approved', 'rejected'], default: 'none', index: true },
     authorProfile: { type: authorProfileSchema, default: () => ({}) },
+    authorTermsAcceptance: {
+      userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      acceptedTerms: { type: Boolean, default: false },
+      acceptedAt: { type: Date }
+    },
     monthlyViews: { type: Number, default: 0, min: 0 },
     lifetimeViews: { type: Number, default: 0, min: 0 },
     totalPaidAmount: { type: Number, default: 0, min: 0 },

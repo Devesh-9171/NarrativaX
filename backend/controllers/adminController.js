@@ -434,6 +434,9 @@ exports.reviewAuthorRequest = asyncHandler(async (req, res) => {
   if (!user) throw new AppError('User not found', 404);
 
   if (action === 'approve') {
+    if (!user.authorTermsAcceptance?.acceptedTerms) {
+      throw new AppError('You must accept Terms & Conditions to become an author', 400);
+    }
     user.authorStatus = 'approved';
     user.role = 'author';
   } else if (action === 'reject') {

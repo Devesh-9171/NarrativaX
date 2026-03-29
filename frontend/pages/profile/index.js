@@ -6,6 +6,17 @@ import api from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
 
 const INPUT_CLASS = 'w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 shadow-sm outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:border-sky-400 dark:focus:ring-sky-400/10';
+const AUTHOR_DECLARATION_TEXT = `By applying as an author on ReadNovaX, you agree that all content submitted by you is original and does not violate any copyright or intellectual property rights.
+
+You confirm that you have full ownership or proper rights to publish the content on this platform.
+
+ReadNovaX does not take responsibility for any copyright violations or legal issues arising from content submitted by authors.
+
+If any content is found to be plagiarized, copied, or in violation of any laws or regulations, ReadNovaX reserves the right to remove such content and suspend or permanently block the author account without prior notice.
+
+In case of serious violations, ReadNovaX also reserves the right to take appropriate legal action if required.
+
+By continuing, you accept full responsibility for your content.`;
 
 const initialAuthorForm = {
   fullName: '',
@@ -151,6 +162,7 @@ export default function ProfilePage() {
   const translationPermissionGranted = Boolean(me?.authorProfile?.translationPermissionGrantedAt);
   const isEmailVerified = Boolean(me?.isEmailVerified);
   const showEmailWarning = me?.role === 'user' && !isEmailVerified;
+  const hasAcceptedAuthorTerms = Boolean(me?.authorTermsAcceptance?.acceptedTerms);
 
   return (
     <Layout>
@@ -237,7 +249,7 @@ export default function ProfilePage() {
             </section>
           </div>
 
-          {me.role === 'author' && (
+          {me.role === 'author' && hasAcceptedAuthorTerms && (
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
               <h2 className="text-xl font-semibold">Author Dashboard</h2>
               <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Manage your books, chapters, and short stories.</p>
@@ -319,6 +331,12 @@ export default function ProfilePage() {
               </div>
             </div>
           )}
+          {me.role === 'author' && !hasAcceptedAuthorTerms && (
+            <div className="rounded-3xl border border-red-200 bg-red-50 p-6 shadow-sm dark:border-red-500/40 dark:bg-red-500/10">
+              <h2 className="text-xl font-semibold text-red-700 dark:text-red-200">Author Access Blocked</h2>
+              <p className="mt-2 text-sm text-red-700 dark:text-red-200">You must accept Terms & Conditions to become an author</p>
+            </div>
+          )}
 
           {me.role === 'user' && (
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
@@ -341,12 +359,21 @@ export default function ProfilePage() {
                     <input className={INPUT_CLASS} placeholder="Pen name" value={authorForm.penName} onChange={(e) => setAuthorForm((c) => ({ ...c, penName: e.target.value }))} required />
                   </div>
                   <textarea className={`${INPUT_CLASS} mt-3 min-h-[100px]`} placeholder="Bio (optional)" value={authorForm.bio} onChange={(e) => setAuthorForm((c) => ({ ...c, bio: e.target.value }))} />
+                  <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900">
+                    <p className="mb-2 text-sm font-semibold">Author Terms & Conditions</p>
+                    <div className="max-h-52 overflow-y-auto rounded-lg border border-slate-200 bg-white p-3 text-sm leading-6 text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
+                      {AUTHOR_DECLARATION_TEXT}
+                    </div>
+                    <Link href="/terms" className="mt-2 inline-block text-sm font-medium text-brand-600 underline">
+                      Read full Terms
+                    </Link>
+                  </div>
                   <label className="mt-3 flex items-center gap-2 text-sm">
                     <input type="checkbox" checked={authorForm.agreeToTerms} onChange={(e) => setAuthorForm((c) => ({ ...c, agreeToTerms: e.target.checked }))} />
-                    I agree to Terms & Conditions
+                    I accept Terms & Conditions
                   </label>
                   <button disabled={submittingAuthor || !authorForm.agreeToTerms || !isEmailVerified} className="mt-4 rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60">
-                    {submittingAuthor ? 'Submitting...' : 'Submit Author Request'}
+                    {submittingAuthor ? 'Submitting...' : 'Apply for Author'}
                   </button>
                 </form>
               ) : null}

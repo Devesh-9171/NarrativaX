@@ -234,6 +234,16 @@ export default function AuthorDashboardPage() {
       </Layout>
     );
   }
+  if (!user?.authorTermsAcceptance?.acceptedTerms) {
+    return (
+      <Layout>
+        <div className={CARD_CLASS}>
+          <p className="font-semibold text-red-700 dark:text-red-200">You must accept Terms & Conditions to become an author</p>
+          <Link href="/profile" className="mt-3 inline-block text-brand-600">Back to profile</Link>
+        </div>
+      </Layout>
+    );
+  }
   if (user?.role !== 'author') {
     return <Layout><div className={CARD_CLASS}><p className="font-semibold">Author access required.</p><Link href="/profile" className="mt-3 inline-block text-brand-600">Back to profile</Link></div></Layout>;
   }
