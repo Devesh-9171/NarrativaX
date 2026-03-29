@@ -271,10 +271,27 @@ exports.dashboardStats = asyncHandler(async (_req, res) => {
 exports.getAuthorRequests = asyncHandler(async (_req, res) => {
   const requests = await User.find({ authorStatus: 'pending' })
     .sort({ updatedAt: 1 })
-    .select('name email authorStatus authorProfile createdAt updatedAt')
+    .select('name email authorStatus authorProfile authorTermsAcceptance createdAt updatedAt')
     .lean();
 
-  res.json({ success: true, data: requests });
+  const data = requests.map((request) => ({
+    ...request,
+    authorProfile: {
+      fullName: request.authorProfile?.fullName || '',
+      penName: request.authorProfile?.penName || '',
+      bio: request.authorProfile?.bio || '',
+      upiId: request.authorProfile?.upiId || '',
+      bankDetails: request.authorProfile?.bankDetails || '',
+      internationalPayment: request.authorProfile?.internationalPayment || ''
+    },
+    authorTermsAcceptance: {
+      acceptedTerms: Boolean(request.authorTermsAcceptance?.acceptedTerms),
+      acceptedAt: request.authorTermsAcceptance?.acceptedAt || null
+    },
+    appliedAt: request.updatedAt || request.createdAt || null
+  }));
+
+  res.json({ success: true, data });
 });
 
 function normalizeMoney(value) {
