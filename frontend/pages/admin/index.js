@@ -89,6 +89,18 @@ function formatNotProvided(value) {
   return normalizedValue;
 }
 
+function formatReviewValue(value) {
+  const normalizedValue = typeof value === 'string' ? value.trim() : value;
+  if (!normalizedValue) return 'Not available';
+  return normalizedValue;
+}
+
+function formatReviewLanguage(language) {
+  const normalizedLanguage = normalizeUiLanguage(language);
+  if (normalizedLanguage === 'hindi') return 'Hindi';
+  return 'English';
+}
+
 function getBookGroupKey(book) {
   return book?.groupId || book?._id || '';
 }
@@ -226,6 +238,11 @@ export default function AdminPage() {
   const [selectedAuthorRequest, setSelectedAuthorRequest] = useState(null);
   const [authorAnalytics, setAuthorAnalytics] = useState([]);
   const [reviewQueue, setReviewQueue] = useState([]);
+  const [selectedReviewItem, setSelectedReviewItem] = useState(null);
+  const [reviewItemDetails, setReviewItemDetails] = useState(null);
+  const [loadingReviewDetails, setLoadingReviewDetails] = useState(false);
+  const [reviewDetailsError, setReviewDetailsError] = useState('');
+  const [reviewActionLoading, setReviewActionLoading] = useState('');
   const [translationStats, setTranslationStats] = useState([]);
   const [reports, setReports] = useState([]);
   const [editBookImageFile, setEditBookImageFile] = useState(null);
@@ -350,6 +367,48 @@ export default function AdminPage() {
       setPaymentFeedback((current) => ({ ...current, [authorId]: error.message || 'Could not mark payment as paid.' }));
     } finally {
       setProcessingPaymentAuthorId('');
+    }
+  };
+
+  const openReviewDetails = async (item) => {
+    if (!authHeaders || !item?._id) return;
+    setSelectedReviewItem(item);
+    setReviewItemDetails(null);
+    setReviewDetailsError('');
+    setLoadingReviewDetails(true);
+
+    try {
+      const response = await api.get(`/admin/content/${item._id}/review-details`, {
+        headers: authHeaders,
+        params: { reviewType: item.reviewType || 'book' }
+      });
+      setReviewItemDetails(response.data?.data || null);
+    } catch (error) {
+      setReviewDetailsError(error.message || 'Could not load content details.');
+    } finally {
+      setLoadingReviewDetails(false);
+    }
+  };
+
+  const submitReviewAction = async (item, status, options = {}) => {
+    if (!authHeaders || !item?._id) return;
+    try {
+      setReviewActionLoading(`${item._id}:${status}`);
+      await api.post(
+        `/admin/content/${item._id}/review`,
+        { status, reviewType: item.reviewType || 'book' },
+        { headers: authHeaders }
+      );
+
+      if (options.closeDetails) {
+        setSelectedReviewItem(null);
+        setReviewItemDetails(null);
+      }
+      await loadDashboard();
+    } catch (error) {
+      setReviewDetailsError(error.message || 'Could not update review status.');
+    } finally {
+      setReviewActionLoading('');
     }
   };
 
@@ -1047,21 +1106,128 @@ export default function AdminPage() {
 
       <section className={`${CARD_CLASS} mt-6`}>
         <h2 className="text-xl font-semibold">Content Review Queue</h2>
-        <div className="mt-3 space-y-2">
-          {reviewQueue.length === 0 ? <p className="text-sm text-slate-500">No pending content.</p> : reviewQueue.map((item) => (
-            <div key={item._id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 p-3 dark:border-slate-800">
-              <div>
-                <p className="font-semibold">{item.title}</p>
-                <p className="text-xs text-slate-500">{item.contentType} · #{(item.tags || []).join(' #')}</p>
-              </div>
-              <div className="flex gap-2">
-                <button type="button" onClick={async ()=>{if(!authHeaders) return; await api.post(`/admin/content/${item._id}/review`,{status:'published',reviewType:item.reviewType || 'book'},{headers:authHeaders});loadDashboard();}} className="rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white">Publish</button>
-                <button type="button" onClick={async ()=>{if(!authHeaders) return; await api.post(`/admin/content/${item._id}/review`,{status:'rejected',reviewType:item.reviewType || 'book'},{headers:authHeaders});loadDashboard();}} className="rounded-full bg-red-600 px-3 py-1 text-xs font-semibold text-white">Reject</button>
-              </div>
+        <div className="mt-3">
+          {reviewQueue.length === 0 ? (
+            <p className="text-sm text-slate-500">No pending content.</p>
+          ) : (
+            <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+              <table className="min-w-full divide-y divide-slate-200 text-left text-sm dark:divide-slate-800">
+                <thead className="bg-slate-50 dark:bg-slate-900">
+                  <tr className="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-300">
+                    <th className="px-4 py-3 font-semibold">Content Title</th>
+                    <th className="px-4 py-3 font-semibold">Content Type</th>
+                    <th className="px-4 py-3 font-semibold">Language</th>
+                    <th className="px-4 py-3 font-semibold">Tags</th>
+                    <th className="px-4 py-3 font-semibold">Created Date</th>
+                    <th className="px-4 py-3 font-semibold">Details</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-900">
+                  {reviewQueue.map((item) => (
+                    <tr key={item._id} className="align-top">
+                      <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{formatReviewValue(item.title)}</td>
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{formatReviewValue(item.contentType?.replaceAll('_', ' '))}</td>
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{formatReviewLanguage(item.language)}</td>
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{item.tags?.length ? item.tags.join(', ') : 'Not available'}</td>
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{item.createdAt ? formatDateTime(item.createdAt) : 'Not available'}</td>
+                      <td className="px-4 py-3">
+                        <button
+                          type="button"
+                          onClick={() => openReviewDetails(item)}
+                          className="rounded-full border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-700 transition hover:border-brand-400 hover:text-brand-600 dark:border-slate-700 dark:text-slate-300 dark:hover:border-sky-400 dark:hover:text-sky-300"
+                        >
+                          View Details
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          ))}
+          )}
         </div>
       </section>
+
+      {selectedReviewItem ? (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 p-4">
+          <div className="mx-auto w-full max-w-4xl rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-slate-700 dark:bg-slate-950">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Content Review Details</h3>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Review full submission and author details before taking action.</p>
+              </div>
+              <button type="button" onClick={() => { setSelectedReviewItem(null); setReviewItemDetails(null); setReviewDetailsError(''); }} className="rounded-full border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-300">Close</button>
+            </div>
+
+            {loadingReviewDetails ? <p className="mt-4 text-sm text-slate-500">Loading content details...</p> : null}
+            {reviewDetailsError ? <p className="mt-4 text-sm text-red-600 dark:text-red-300">{reviewDetailsError}</p> : null}
+
+            {reviewItemDetails ? (
+              <>
+                <div className="mt-4 grid gap-4 text-sm text-slate-700 dark:text-slate-200 sm:grid-cols-2">
+                  <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-800">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Content Title</p>
+                    <p className="mt-1">{formatReviewValue(reviewItemDetails.contentTitle)}</p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-800">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Content Type</p>
+                    <p className="mt-1">{formatReviewValue(reviewItemDetails.contentType?.replaceAll('_', ' '))}</p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-800">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Language</p>
+                    <p className="mt-1">{formatReviewLanguage(reviewItemDetails.language)}</p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-800">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Created Date</p>
+                    <p className="mt-1">{reviewItemDetails.createdAt ? formatDateTime(reviewItemDetails.createdAt) : 'Not available'}</p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-800 sm:col-span-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Tags</p>
+                    <p className="mt-1">{reviewItemDetails.tags?.length ? reviewItemDetails.tags.join(', ') : 'Not available'}</p>
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-4 text-sm text-slate-700 dark:text-slate-200 sm:grid-cols-2">
+                  <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-800">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Author Name</p>
+                    <p className="mt-1">{formatReviewValue(reviewItemDetails.authorName)}</p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-800">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Author Email</p>
+                    <p className="mt-1">{formatReviewValue(reviewItemDetails.authorEmail)}</p>
+                  </div>
+                </div>
+
+                <div className="mt-4 rounded-xl border border-slate-200 p-3 dark:border-slate-800">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Full Content Preview</p>
+                  <div className="mt-2 h-80 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-3 font-serif text-sm leading-7 text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
+                    <p className="whitespace-pre-wrap">{formatReviewValue(reviewItemDetails.fullContent)}</p>
+                  </div>
+                </div>
+
+                <div className="mt-5 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    disabled={Boolean(reviewActionLoading)}
+                    onClick={() => submitReviewAction(selectedReviewItem, 'published', { closeDetails: true })}
+                    className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-semibold text-white disabled:opacity-60"
+                  >
+                    {reviewActionLoading === `${selectedReviewItem._id}:published` ? 'Approving...' : 'Approve'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={Boolean(reviewActionLoading)}
+                    onClick={() => submitReviewAction(selectedReviewItem, 'rejected', { closeDetails: true })}
+                    className="rounded-full bg-red-600 px-4 py-2 text-xs font-semibold text-white disabled:opacity-60"
+                  >
+                    {reviewActionLoading === `${selectedReviewItem._id}:rejected` ? 'Rejecting...' : 'Reject'}
+                  </button>
+                </div>
+              </>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
 
 
       <section className={`${CARD_CLASS} mt-6`}>

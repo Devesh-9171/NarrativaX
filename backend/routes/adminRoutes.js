@@ -12,6 +12,7 @@ router.get('/authors/:authorId/payments', auth('admin'), controller.getAuthorPay
 router.post('/authors/:authorId/payments', auth('admin'), controller.markAuthorPaymentAsPaid);
 router.post('/author-requests/:userId/review', auth('admin'), controller.reviewAuthorRequest);
 router.get('/content/review-queue', auth('admin'), controller.getReviewQueue);
+router.get('/content/:contentId/review-details', auth('admin'), controller.getReviewContentDetails);
 router.get('/translations', auth('admin'), controller.getTranslationStats);
 router.post('/content/:bookId/review', auth('admin'), controller.reviewContent);
 router.post('/books/:bookId/mark-finished', auth('admin'), controller.markBookFinished);

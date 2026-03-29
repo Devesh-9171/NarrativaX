@@ -470,19 +470,87 @@ exports.reviewAuthorRequest = asyncHandler(async (req, res) => {
 exports.getReviewQueue = asyncHandler(async (_req, res) => {
   const bookItems = await Book.find({ status: 'review' })
     .sort({ updatedAt: 1 })
-    .select('title author slug contentType tags status language updatedAt')
+    .select('title contentType tags status language createdAt updatedAt')
     .lean();
   const shortStoryItems = await ShortStory.find({ status: 'review' })
     .sort({ updatedAt: 1 })
-    .select('title tags status updatedAt')
+    .select('title tags status language createdAt updatedAt')
     .lean();
 
   const items = [
     ...bookItems.map((item) => ({ ...item, reviewType: 'book' })),
-    ...shortStoryItems.map((item) => ({ ...item, reviewType: 'short_story', contentType: 'short_story', author: 'Author upload', language: 'en' }))
+    ...shortStoryItems.map((item) => ({ ...item, reviewType: 'short_story', contentType: 'short_story' }))
   ].sort((left, right) => new Date(left.updatedAt).getTime() - new Date(right.updatedAt).getTime());
 
   res.json({ success: true, data: items });
+});
+
+exports.getReviewContentDetails = asyncHandler(async (req, res) => {
+  const reviewType = req.query.reviewType === 'short_story' ? 'short_story' : 'book';
+
+  if (reviewType === 'short_story') {
+    const item = await ShortStory.findById(req.params.contentId)
+      .select('title content tags language createdAt status contentType authorId authorName')
+      .lean();
+    if (!item) throw new AppError('Content not found', 404);
+    if (item.status !== 'review') throw new AppError('Content is not in review queue', 400);
+
+    const author = item.authorId ? await User.findById(item.authorId).select('name email').lean() : null;
+
+    return res.json({
+      success: true,
+      data: {
+        _id: item._id,
+        reviewType: 'short_story',
+        contentTitle: item.title || '',
+        contentType: item.contentType || 'short_story',
+        language: item.language || '',
+        tags: Array.isArray(item.tags) ? item.tags : [],
+        createdAt: item.createdAt,
+        authorName: author?.name || item.authorName || '',
+        authorEmail: author?.email || '',
+        fullContent: item.content || ''
+      }
+    });
+  }
+
+  const item = await Book.findById(req.params.contentId)
+    .select('title contentType tags language createdAt status description authorName author authorId authorUserId')
+    .lean();
+  if (!item) throw new AppError('Content not found', 404);
+  if (item.status !== 'review') throw new AppError('Content is not in review queue', 400);
+
+  const authorId = item.authorId || item.authorUserId;
+  const author = authorId ? await User.findById(authorId).select('name email').lean() : null;
+  const chapters = await Chapter.find({ bookId: item._id })
+    .sort({ chapterNumber: 1, createdAt: 1 })
+    .select('chapterNumber title content')
+    .lean();
+
+  const chapterText = chapters
+    .map((chapter) => `Chapter ${chapter.chapterNumber || '—'}: ${chapter.title || 'Untitled'}\n${chapter.content || ''}`)
+    .join('\n\n');
+
+  const fullContentParts = [
+    item.description ? `Description:\n${item.description}` : '',
+    chapterText ? `\n\n${chapterText}` : ''
+  ].filter(Boolean);
+
+  return res.json({
+    success: true,
+    data: {
+      _id: item._id,
+      reviewType: 'book',
+      contentTitle: item.title || '',
+      contentType: item.contentType || 'book',
+      language: item.language || '',
+      tags: Array.isArray(item.tags) ? item.tags : [],
+      createdAt: item.createdAt,
+      authorName: author?.name || item.authorName || item.author || '',
+      authorEmail: author?.email || '',
+      fullContent: fullContentParts.join('')
+    }
+  });
 });
 
 exports.reviewContent = asyncHandler(async (req, res) => {
