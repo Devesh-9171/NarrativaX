@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const config = require('../config');
 const AppError = require('../utils/AppError');
+const User = require('../models/User');
 
 function authMiddleware(req, _res, next) {
   const authHeader = req.headers.authorization || '';
@@ -28,20 +29,31 @@ function requireAdmin(req, _res, next) {
 }
 
 function requireRole(...roles) {
-  return (req, _res, next) => {
-    if (!req.user) {
-      return next(new AppError('Unauthorized', 401));
-    }
+  return async (req, _res, next) => {
+    try {
+      if (!req.user) {
+        return next(new AppError('Unauthorized', 401));
+      }
 
-    if (req.user.role === 'admin') {
+      if (req.user.role === 'admin') {
+        return next();
+      }
+
+      if (!roles.includes(req.user.role)) {
+        return next(new AppError('Forbidden', 403));
+      }
+
+      if (roles.includes('author') && req.user.role === 'author') {
+        const authorUser = await User.findById(req.user.id).select('authorTermsAcceptance').lean();
+        if (!authorUser?.authorTermsAcceptance?.acceptedTerms) {
+          return next(new AppError('You must accept Terms & Conditions to become an author', 403));
+        }
+      }
+
       return next();
+    } catch (lookupError) {
+      return next(lookupError);
     }
-
-    if (!roles.includes(req.user.role)) {
-      return next(new AppError('Forbidden', 403));
-    }
-
-    return next();
   };
 }
 

@@ -81,7 +81,8 @@ exports.requestAuthorRole = asyncHandler(async (req, res) => {
     throw new AppError('fullName and penName are required', 400);
   }
 
-  if (!agreeToTerms) {
+  const hasAcceptedTerms = agreeToTerms === true || String(agreeToTerms).trim().toLowerCase() === 'true';
+  if (!hasAcceptedTerms) {
     throw new AppError('Terms not accepted', 400);
   }
 
@@ -91,6 +92,11 @@ exports.requestAuthorRole = asyncHandler(async (req, res) => {
     fullName: String(fullName).trim(),
     penName: String(penName).trim(),
     bio: String(bio || '').trim()
+  };
+  user.authorTermsAcceptance = {
+    userId: user._id,
+    acceptedTerms: true,
+    acceptedAt: new Date()
   };
 
   await user.save();
