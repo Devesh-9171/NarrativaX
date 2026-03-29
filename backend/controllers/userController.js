@@ -73,24 +73,27 @@ exports.requestAuthorRole = asyncHandler(async (req, res) => {
   const user = await User.findById(req.user.id);
   if (!user) throw new AppError('User not found', 404);
 
+  const normalizedFullName = String(fullName || '').trim();
+  const normalizedPenName = String(penName || '').trim();
+
   if (!user.isEmailVerified) {
     throw new AppError('Please verify your email before applying as author', 400);
   }
 
-  if (!fullName || !penName) {
+  if (!normalizedFullName || !normalizedPenName) {
     throw new AppError('fullName and penName are required', 400);
   }
 
   const hasAcceptedTerms = agreeToTerms === true || String(agreeToTerms).trim().toLowerCase() === 'true';
   if (!hasAcceptedTerms) {
-    throw new AppError('Terms not accepted', 400);
+    throw new AppError('You must accept Terms & Conditions and Author Declaration', 400);
   }
 
   user.authorStatus = 'pending';
   user.authorProfile = {
     ...user.authorProfile,
-    fullName: String(fullName).trim(),
-    penName: String(penName).trim(),
+    fullName: normalizedFullName,
+    penName: normalizedPenName,
     bio: String(bio || '').trim()
   };
   user.authorTermsAcceptance = {

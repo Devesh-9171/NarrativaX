@@ -360,17 +360,20 @@ export default function ProfilePage() {
                   </div>
                   <textarea className={`${INPUT_CLASS} mt-3 min-h-[100px]`} placeholder="Bio (optional)" value={authorForm.bio} onChange={(e) => setAuthorForm((c) => ({ ...c, bio: e.target.value }))} />
                   <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900">
-                    <p className="mb-2 text-sm font-semibold">Author Terms & Conditions</p>
+                    <p className="mb-2 text-sm font-semibold">1. General Terms</p>
+                    <Link href="/terms" className="inline-block text-sm font-medium text-brand-600 underline">
+                      Read full Terms &amp; Conditions
+                    </Link>
+                  </div>
+                  <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-900">
+                    <p className="mb-2 text-sm font-semibold">2. Author Declaration</p>
                     <div className="max-h-52 overflow-y-auto rounded-lg border border-slate-200 bg-white p-3 text-sm leading-6 text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
                       {AUTHOR_DECLARATION_TEXT}
                     </div>
-                    <Link href="/terms" className="mt-2 inline-block text-sm font-medium text-brand-600 underline">
-                      Read full Terms
-                    </Link>
                   </div>
                   <label className="mt-3 flex items-center gap-2 text-sm">
                     <input type="checkbox" checked={authorForm.agreeToTerms} onChange={(e) => setAuthorForm((c) => ({ ...c, agreeToTerms: e.target.checked }))} />
-                    I accept Terms & Conditions
+                    3. I accept Terms &amp; Conditions and Author Declaration
                   </label>
                   <button disabled={submittingAuthor || !authorForm.agreeToTerms || !isEmailVerified} className="mt-4 rounded-full bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60">
                     {submittingAuthor ? 'Submitting...' : 'Apply for Author'}
