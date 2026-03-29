@@ -70,7 +70,9 @@ export default function ShortStoryReelPage({ stories, slug }) {
   const scrollerRef = useRef(null);
   const completionRef = useRef({});
   const autoAdvanceRef = useRef(false);
+  const autoAdvanceTimerRef = useRef(null);
   const transitionTimerRef = useRef(null);
+  const fetchInFlightRef = useRef(false);
   const [history, setHistory] = useState([]);
   const [storyFeed, setStoryFeed] = useState(Array.isArray(stories) ? stories : []);
   const [activeSlug, setActiveSlug] = useState(slug || stories?.[0]?.slug || null);
@@ -107,7 +109,8 @@ export default function ShortStoryReelPage({ stories, slug }) {
   }, [currentStory?.slug, sessionTrail, storyFeed]);
 
   const fetchMoreStories = useCallback(async ({ retries = 1, fallbackToTrending = true } = {}) => {
-    if (isFetchingMore || !hasMoreStories) return;
+    if (fetchInFlightRef.current || isFetchingMore || !hasMoreStories) return;
+    fetchInFlightRef.current = true;
     setIsFetchingMore(true);
     setFetchErrorMessage('');
     try {
@@ -142,6 +145,7 @@ export default function ShortStoryReelPage({ stories, slug }) {
         }
       }
     } finally {
+      fetchInFlightRef.current = false;
       setIsFetchingMore(false);
     }
   }, [hasMoreStories, isFetchingMore, storyFeed, token]);
@@ -166,11 +170,13 @@ export default function ShortStoryReelPage({ stories, slug }) {
       return;
     }
     setShowInterstitial(true);
-    window.setTimeout(() => transitionToStory(nextStory.slug), AUTO_NEXT_DELAY_MS);
+    if (autoAdvanceTimerRef.current) window.clearTimeout(autoAdvanceTimerRef.current);
+    autoAdvanceTimerRef.current = window.setTimeout(() => transitionToStory(nextStory.slug), AUTO_NEXT_DELAY_MS);
   }, [fetchMoreStories, hasMoreStories, isFetchingMore, nextStory, transitionToStory]);
 
   useEffect(() => () => {
     if (transitionTimerRef.current) window.clearTimeout(transitionTimerRef.current);
+    if (autoAdvanceTimerRef.current) window.clearTimeout(autoAdvanceTimerRef.current);
   }, []);
 
   useEffect(() => {

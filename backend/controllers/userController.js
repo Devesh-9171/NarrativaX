@@ -44,23 +44,32 @@ exports.toggleFavoriteBook = asyncHandler(async (req, res) => {
 
 exports.saveReadingProgress = asyncHandler(async (req, res) => {
   const { bookId, chapterId, progress, status } = req.body;
+  const normalizedProgress = Number(progress);
+  if (!bookId || !chapterId || !Number.isFinite(normalizedProgress)) {
+    throw new AppError('bookId, chapterId and numeric progress are required', 400);
+  }
+
+  const boundedProgress = Math.max(0, Math.min(100, Math.round(normalizedProgress)));
+  const chapterExists = await Chapter.exists({ _id: chapterId, bookId });
+  if (!chapterExists) throw new AppError('Chapter not found for this book', 404);
+
   const user = await User.findById(req.user.id);
   if (!user) throw new AppError('User not found', 404);
 
-  const existing = user.readingHistory.find((item) => item.chapterId.toString() === chapterId);
+  const existing = user.readingHistory.find((item) => item.chapterId?.toString() === chapterId);
 
   if (existing) {
-    existing.progress = progress;
+    existing.progress = boundedProgress;
     existing.status = status === 'skipped' ? 'skipped' : 'read';
     existing.lastReadAt = new Date();
-    if (Number(progress) >= 100) existing.completedAt = new Date();
+    if (boundedProgress >= 100) existing.completedAt = new Date();
   } else {
     user.readingHistory.push({
       bookId,
       chapterId,
-      progress,
+      progress: boundedProgress,
       status: status === 'skipped' ? 'skipped' : 'read',
-      completedAt: Number(progress) >= 100 ? new Date() : undefined
+      completedAt: boundedProgress >= 100 ? new Date() : undefined
     });
   }
 

@@ -96,10 +96,18 @@ export default function AuthorDashboardPage() {
 
   useEffect(() => {
     if (authLoading) return;
+    if (!token && router.pathname !== '/auth/login') {
+      router.replace('/auth/login');
+      return;
+    }
     if (user?.role === 'admin' && router.pathname !== '/admin') {
       router.replace('/admin');
+      return;
     }
-  }, [authLoading, router, user?.role]);
+    if (token && user && user.role !== 'author' && user.role !== 'admin' && router.pathname !== '/profile') {
+      router.replace('/profile');
+    }
+  }, [authLoading, router, token, user]);
   const submitBook = async (event) => {
     event.preventDefault();
     if (!headers) return;
