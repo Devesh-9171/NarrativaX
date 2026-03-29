@@ -7,6 +7,7 @@ import AdSlot from '../../components/AdSlot';
 import api from '../../utils/api';
 import { buildMeta } from '../../utils/seo';
 import { useAuth } from '../../context/AuthContext';
+import ContentReportMenu from '../../components/ContentReportMenu';
 
 const HISTORY_KEY = 'short-story-history-v1';
 const SESSION_CACHE_KEY = 'short-story-session-cache-v1';
@@ -303,7 +304,7 @@ export default function ShortStoryReelPage({ stories, slug }) {
           <h1 className="text-2xl font-semibold">{currentStory.title}</h1>
           <p className="text-sm text-slate-500 dark:text-slate-400">#{(currentStory.tags || []).join(' #') || 'story'} · {currentStory.wordCount} words · {currentStory.readingTimeMinutes} min read</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           {previousStory && (
             <button
               type="button"
@@ -322,6 +323,7 @@ export default function ShortStoryReelPage({ stories, slug }) {
               Next
             </button>
           )}
+          <ContentReportMenu contentId={currentStory._id} contentType="shortStory" />
         </div>
       </section>
 

@@ -9,6 +9,7 @@ import api from '../utils/api';
 import { buildCanonicalUrl, buildMeta } from '../utils/seo';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
+import ContentReportMenu from './ContentReportMenu';
 
 const DEFAULT_SETTINGS = {
   fontSize: 19,
@@ -339,8 +340,11 @@ export default function ChapterReaderPage({ book, chapter, chapters = [], previo
                   })}
                 </div>
               ) : null}
-              <div className="rounded-2xl bg-slate-100 px-4 py-3 text-sm text-slate-600 dark:bg-slate-900 dark:text-slate-300">
-                {Math.round(progress)}% read
+              <div className="flex items-center gap-3">
+                <div className="rounded-2xl bg-slate-100 px-4 py-3 text-sm text-slate-600 dark:bg-slate-900 dark:text-slate-300">
+                  {Math.round(progress)}% read
+                </div>
+                <ContentReportMenu contentId={chapter._id} contentType="chapter" />
               </div>
             </div>
           </div>
