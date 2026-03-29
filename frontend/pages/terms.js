@@ -1,61 +1,94 @@
 import InfoPage from '../components/InfoPage';
 
-const terms = [
+const termsSections = [
   {
-    title: 'Eligibility',
-    body: 'You must be at least 13 years old to use this website.'
+    title: '1. Introduction',
+    paragraphs: [
+      'Welcome to ReadNovaX. By accessing or using our platform, you agree to comply with and be bound by these Terms & Conditions.'
+    ]
   },
   {
-    title: 'Content Usage',
-    body: 'All books and content on this platform are for reading purposes only. You may not copy, reproduce, or distribute content without permission.'
+    title: '2. Content Ownership',
+    paragraphs: [
+      'All authors retain ownership of their content. However, by publishing on ReadNovaX, you grant us the right to display, distribute, and promote your content on our platform.'
+    ]
   },
   {
-    title: 'User Responsibility',
-    body: 'Users must not misuse the platform or attempt to harm the website in any way.'
+    title: '3. Author Responsibility',
+    paragraphs: [
+      'Authors are solely responsible for the content they publish. All content must be original and must not violate any copyright, trademark, or intellectual property rights.',
+      'Any form of plagiarism, copied content, or unauthorized use of material is strictly prohibited.'
+    ]
   },
   {
-    title: 'Account Usage',
-    body: 'You are responsible for maintaining the confidentiality of your login details, and we reserve the right to suspend or terminate any account that violates our terms.'
+    title: '4. Platform Rights',
+    paragraphs: ['ReadNovaX reserves the right to:'],
+    items: [
+      'Remove any content that violates our policies',
+      'Suspend or terminate author accounts without prior notice',
+      'Take necessary actions against misuse of the platform'
+    ]
   },
   {
-    title: 'Content Rights',
-    body: 'We aim to upload only safe and verified content. If you believe any content violates rights, please contact us.'
+    title: '5. Payments',
+    paragraphs: [
+      'Payments to authors are based on platform-defined metrics (such as views) and are managed manually. ReadNovaX reserves the right to modify payment structures at any time.'
+    ]
   },
   {
-    title: 'Advertising',
-    body: 'We may display third-party advertisements, including Google AdSense, and we are not responsible for the content, claims, or behavior of those ads.'
+    title: '6. Limitation of Liability',
+    paragraphs: [
+      'ReadNovaX is not responsible for any legal issues arising from user-generated content. Authors bear full responsibility for their submissions.'
+    ]
   },
   {
-    title: 'Changes to Service',
-    body: 'We may update, modify, suspend, or discontinue parts of the platform at any time without prior notice.'
+    title: '7. Account Suspension',
+    paragraphs: [
+      'Accounts found violating terms (including plagiarism or misuse) may be suspended or permanently banned.'
+    ]
   },
   {
-    title: 'Limitation of Liability',
-    body: 'We are not responsible for any loss or damage resulting from the use of this website.'
-  },
-  {
-    title: 'Governing Law',
-    body: 'These terms are governed by the laws of India.'
+    title: '8. Changes to Terms',
+    paragraphs: [
+      'We may update these Terms & Conditions at any time. Continued use of the platform means you accept the updated terms.'
+    ]
   }
 ];
 
 export default function TermsPage() {
+  const lastUpdated = new Date().toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+
   return (
     <InfoPage
-      title="Terms and Conditions"
-      description="Read the ReadNovaX terms and conditions for platform usage, account responsibility, advertising disclosures, and governing law."
+      title="Terms & Conditions – ReadNovaX"
+      description="Review the official Terms & Conditions for ReadNovaX, including author obligations, platform rights, content ownership, payments, and account enforcement rules."
       path="/terms"
     >
-      <p>Welcome to ReadNovaX. By using our website, you agree to the following terms and conditions:</p>
-      <ol className="space-y-4 pl-5">
-        {terms.map((term) => (
-          <li key={term.title} className="list-decimal pl-1">
-            <span className="font-semibold text-slate-900 dark:text-white">{term.title}</span>
-            <p className="mt-1">{term.body}</p>
-          </li>
+      <p className="text-sm font-medium uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+        Last Updated: <span className="normal-case tracking-normal">{lastUpdated}</span>
+      </p>
+
+      <div className="space-y-6 pt-2">
+        {termsSections.map((section) => (
+          <article key={section.title} className="space-y-3 rounded-2xl border border-slate-200/80 bg-slate-50/60 p-5 dark:border-slate-800 dark:bg-slate-900/70">
+            <h2 className="text-xl font-semibold text-slate-900 dark:text-white">{section.title}</h2>
+            {section.paragraphs.map((paragraph) => (
+              <p key={paragraph}>{paragraph}</p>
+            ))}
+            {section.items ? (
+              <ul className="list-disc space-y-2 pl-6">
+                {section.items.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            ) : null}
+          </article>
         ))}
-      </ol>
-      <p>By continuing to use ReadNovaX, you agree to these terms.</p>
+      </div>
     </InfoPage>
   );
 }

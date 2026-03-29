@@ -9,7 +9,7 @@ const NAV_LINK_CLASS = 'transition hover:text-brand-600 dark:hover:text-sky-300'
 const FOOTER_LINKS = [
   { href: '/about', label: 'About' },
   { href: '/contact', label: 'Contact' },
-  { href: '/terms', label: 'Terms' },
+  { href: '/terms', label: 'Terms & Conditions' },
   { href: '/privacy-policy', label: 'Privacy Policy' },
   { href: '/disclaimer', label: 'Disclaimer' },
   { href: '/blog', label: 'Blog' }
