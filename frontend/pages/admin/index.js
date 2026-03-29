@@ -220,6 +220,7 @@ export default function AdminPage() {
   const [authorAnalytics, setAuthorAnalytics] = useState([]);
   const [reviewQueue, setReviewQueue] = useState([]);
   const [translationStats, setTranslationStats] = useState([]);
+  const [reports, setReports] = useState([]);
   const [editBookImageFile, setEditBookImageFile] = useState(null);
   const [editBlogImageFile, setEditBlogImageFile] = useState(null);
   const [paymentAmounts, setPaymentAmounts] = useState({});
@@ -270,14 +271,15 @@ export default function AdminPage() {
     setListError('');
 
     try {
-      const [statsResponse, booksResponse, blogsResponse, authorRequestsResponse, authorAnalyticsResponse, reviewQueueResponse, translationsResponse] = await Promise.all([
+      const [statsResponse, booksResponse, blogsResponse, authorRequestsResponse, authorAnalyticsResponse, reviewQueueResponse, translationsResponse, reportsResponse] = await Promise.all([
         api.get('/admin/stats', { headers: authHeaders }),
         api.get('/books', { params: { limit: 100, includeAllLanguages: true } }),
         api.get('/admin/blogs', { headers: authHeaders }),
         api.get('/admin/author-requests', { headers: authHeaders }),
         api.get('/admin/authors/analytics', { headers: authHeaders }),
         api.get('/admin/content/review-queue', { headers: authHeaders }),
-        api.get('/admin/translations', { headers: authHeaders })
+        api.get('/admin/translations', { headers: authHeaders }),
+        api.get('/reports', { headers: authHeaders })
       ]);
 
       const nextBooks = booksResponse.data.data || [];
@@ -288,6 +290,7 @@ export default function AdminPage() {
       setAuthorAnalytics(authorAnalyticsResponse.data.data || []);
       setReviewQueue(reviewQueueResponse.data.data || []);
       setTranslationStats(translationsResponse.data.data || []);
+      setReports(reportsResponse.data.data || []);
       setChapterForm((current) => ({
         ...current,
         bookId: current.bookId || nextBooks[0]?._id || ''
@@ -297,6 +300,7 @@ export default function AdminPage() {
       setBooks([]);
       setBlogPosts([]);
       setAuthorAnalytics([]);
+      setReports([]);
       setListError(error.message || 'Could not load the admin workspace.');
     } finally {
       setLoadingStats(false);
@@ -972,6 +976,51 @@ export default function AdminPage() {
             </div>
           ))}
         </div>
+      </section>
+
+
+      <section className={`${CARD_CLASS} mt-6`}>
+        <h2 className="text-xl font-semibold">Reports</h2>
+        {reports.length === 0 ? (
+          <p className="mt-3 text-sm text-slate-500">No reports submitted yet.</p>
+        ) : (
+          <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+            <table className="min-w-full divide-y divide-slate-200 text-left text-sm dark:divide-slate-800">
+              <thead className="bg-slate-50 dark:bg-slate-900">
+                <tr className="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-300">
+                  <th className="px-4 py-3 font-semibold">Content Title</th>
+                  <th className="px-4 py-3 font-semibold">Content Type</th>
+                  <th className="px-4 py-3 font-semibold">Report Type</th>
+                  <th className="px-4 py-3 font-semibold">Email</th>
+                  <th className="px-4 py-3 font-semibold">Description</th>
+                  <th className="px-4 py-3 font-semibold">Date</th>
+                  <th className="px-4 py-3 font-semibold">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-900">
+                {reports.map((report) => (
+                  <tr key={report._id} className="align-top">
+                    <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{report.contentTitle || 'Untitled'}</td>
+                    <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{report.contentType}</td>
+                    <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{report.reportType}</td>
+                    <td className="px-4 py-3 text-slate-700 dark:text-slate-200">{report.email}</td>
+                    <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{report.description ? `${report.description.slice(0, 96)}${report.description.length > 96 ? '…' : ''}` : '—'}</td>
+                    <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{formatDateTime(report.createdAt)}</td>
+                    <td className="px-4 py-3">
+                      {report.contentPath ? (
+                        <Link href={report.contentPath} className="rounded-full border border-slate-300 px-3 py-1 text-xs font-semibold text-brand-600 transition hover:border-brand-400 dark:border-slate-700 dark:text-sky-300">
+                          View Content
+                        </Link>
+                      ) : (
+                        <span className="text-xs text-slate-500">Unavailable</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
 
       <section className={`${CARD_CLASS} mt-6`}>

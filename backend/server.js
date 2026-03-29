@@ -13,6 +13,7 @@ const ShortStory = require('./models/ShortStory');
 const StoryHistory = require('./models/StoryHistory');
 const Payment = require('./models/Payment');
 const ReadingProgress = require('./models/ReadingProgress');
+const Report = require('./models/Report');
 
 const app = express();
 let isDatabaseConnected = mongoose.connection.readyState === 1;
@@ -71,7 +72,8 @@ async function syncDatabaseIndexes() {
     ShortStory.syncIndexes(),
     StoryHistory.syncIndexes(),
     Payment.syncIndexes(),
-    ReadingProgress.syncIndexes()
+    ReadingProgress.syncIndexes(),
+    Report.syncIndexes()
   ]);
 }
 
@@ -176,6 +178,7 @@ app.use('/api/chapters', require('./routes/chapterRoutes'));
 app.use('/api/short-stories', require('./routes/shortStoryRoutes'));
 app.use('/api/user', require('./routes/userRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
+app.use('/api/reports', require('./routes/reportRoutes'));
 
 app.use(notFound);
 app.use(errorHandler);
