@@ -83,6 +83,12 @@ function formatDateTime(date) {
   }).format(new Date(date));
 }
 
+function formatNotProvided(value) {
+  const normalizedValue = typeof value === 'string' ? value.trim() : value;
+  if (!normalizedValue) return 'Not Provided';
+  return normalizedValue;
+}
+
 function getBookGroupKey(book) {
   return book?.groupId || book?._id || '';
 }
@@ -217,6 +223,7 @@ export default function AdminPage() {
   const [deletingBookId, setDeletingBookId] = useState('');
   const [deletingBlogId, setDeletingBlogId] = useState('');
   const [authorRequests, setAuthorRequests] = useState([]);
+  const [selectedAuthorRequest, setSelectedAuthorRequest] = useState(null);
   const [authorAnalytics, setAuthorAnalytics] = useState([]);
   const [reviewQueue, setReviewQueue] = useState([]);
   const [translationStats, setTranslationStats] = useState([]);
@@ -838,24 +845,102 @@ export default function AdminPage() {
 
       <section className={CARD_CLASS}>
         <h2 className="text-xl font-semibold">Author Requests</h2>
-        <div className="mt-3 space-y-2">
-          {authorRequests.length === 0 ? <p className="text-sm text-slate-500">No pending requests.</p> : authorRequests.map((request) => (
-            <div key={request._id} className="rounded-xl border border-slate-200 p-3 dark:border-slate-800">
-              <p className="font-semibold">{request.authorProfile?.penName || request.name} <span className="text-xs text-slate-500">({request.email})</span></p>
-              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{request.authorProfile?.bio}</p>
-              <div className="mt-2 space-y-1 text-xs text-slate-600 dark:text-slate-300">
-                <p><span className="font-semibold">UPI:</span> {request.authorProfile?.upiId || '—'}</p>
-                <p><span className="font-semibold">Bank:</span> {request.authorProfile?.bankDetails || '—'}</p>
-                <p><span className="font-semibold">International:</span> {request.authorProfile?.internationalPayment || '—'}</p>
-              </div>
-              <div className="mt-2 flex gap-2">
-                <button type="button" onClick={async ()=>{if(!authHeaders) return; await api.post(`/admin/author-requests/${request._id}/review`,{action:'approve'},{headers:authHeaders});loadDashboard();}} className="rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white">Approve</button>
-                <button type="button" onClick={async ()=>{if(!authHeaders) return; await api.post(`/admin/author-requests/${request._id}/review`,{action:'reject'},{headers:authHeaders});loadDashboard();}} className="rounded-full bg-red-600 px-3 py-1 text-xs font-semibold text-white">Reject</button>
-              </div>
+        <div className="mt-3">
+          {authorRequests.length === 0 ? <p className="text-sm text-slate-500">No pending requests.</p> : (
+            <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+              <table className="min-w-full divide-y divide-slate-200 text-left text-sm dark:divide-slate-800">
+                <thead className="bg-slate-50 dark:bg-slate-900">
+                  <tr className="text-xs uppercase tracking-wide text-slate-600 dark:text-slate-300">
+                    <th className="px-4 py-3 font-semibold">Name</th>
+                    <th className="px-4 py-3 font-semibold">Email</th>
+                    <th className="px-4 py-3 font-semibold">Applied Date</th>
+                    <th className="px-4 py-3 font-semibold">Details</th>
+                    <th className="px-4 py-3 font-semibold">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-900">
+                  {authorRequests.map((request) => (
+                    <tr key={request._id} className="align-top">
+                      <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{formatNotProvided(request.authorProfile?.fullName || request.authorProfile?.penName || request.name)}</td>
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{formatNotProvided(request.email)}</td>
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{formatDateTime(request.appliedAt || request.updatedAt || request.createdAt)}</td>
+                      <td className="px-4 py-3">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedAuthorRequest(request)}
+                          className="rounded-full border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-700 transition hover:border-brand-400 hover:text-brand-600 dark:border-slate-700 dark:text-slate-300 dark:hover:border-sky-400 dark:hover:text-sky-300"
+                        >
+                          View Details
+                        </button>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap gap-2">
+                          <button type="button" onClick={async ()=>{if(!authHeaders) return; await api.post(`/admin/author-requests/${request._id}/review`,{action:'approve'},{headers:authHeaders});setSelectedAuthorRequest(null);loadDashboard();}} className="rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white">Approve</button>
+                          <button type="button" onClick={async ()=>{if(!authHeaders) return; await api.post(`/admin/author-requests/${request._id}/review`,{action:'reject'},{headers:authHeaders});setSelectedAuthorRequest(null);loadDashboard();}} className="rounded-full bg-red-600 px-3 py-1 text-xs font-semibold text-white">Reject</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          ))}
+          )}
         </div>
       </section>
+
+      {selectedAuthorRequest ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4">
+          <div className="w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-slate-700 dark:bg-slate-950">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Author Request Details</h3>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Read-only information submitted by the applicant.</p>
+              </div>
+              <button type="button" onClick={() => setSelectedAuthorRequest(null)} className="rounded-full border border-slate-300 px-3 py-1 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-300">Close</button>
+            </div>
+
+            <div className="mt-4 grid gap-4 text-sm text-slate-700 dark:text-slate-200 sm:grid-cols-2">
+              <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-800">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Name</p>
+                <p className="mt-1">{formatNotProvided(selectedAuthorRequest.authorProfile?.fullName || selectedAuthorRequest.authorProfile?.penName || selectedAuthorRequest.name)}</p>
+              </div>
+              <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-800">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Email</p>
+                <p className="mt-1">{formatNotProvided(selectedAuthorRequest.email)}</p>
+              </div>
+              <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-800 sm:col-span-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Bio</p>
+                <p className="mt-1 whitespace-pre-wrap">{formatNotProvided(selectedAuthorRequest.authorProfile?.bio)}</p>
+              </div>
+              <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-800">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">UPI ID</p>
+                <p className="mt-1">{formatNotProvided(selectedAuthorRequest.authorProfile?.upiId)}</p>
+              </div>
+              <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-800">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Bank Details</p>
+                <p className="mt-1 whitespace-pre-wrap">{formatNotProvided(selectedAuthorRequest.authorProfile?.bankDetails)}</p>
+              </div>
+              <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-800">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">International Payment</p>
+                <p className="mt-1 whitespace-pre-wrap">{formatNotProvided(selectedAuthorRequest.authorProfile?.internationalPayment)}</p>
+              </div>
+              <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-800">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Accepted Terms</p>
+                <p className="mt-1">{selectedAuthorRequest.authorTermsAcceptance?.acceptedTerms ? 'Yes' : 'No'}</p>
+              </div>
+              <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-800">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Applied Date</p>
+                <p className="mt-1">{formatDateTime(selectedAuthorRequest.appliedAt || selectedAuthorRequest.updatedAt || selectedAuthorRequest.createdAt)}</p>
+              </div>
+            </div>
+
+            <div className="mt-5 flex flex-wrap gap-2">
+              <button type="button" onClick={async ()=>{if(!authHeaders) return; await api.post(`/admin/author-requests/${selectedAuthorRequest._id}/review`,{action:'approve'},{headers:authHeaders});setSelectedAuthorRequest(null);loadDashboard();}} className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-semibold text-white">Approve</button>
+              <button type="button" onClick={async ()=>{if(!authHeaders) return; await api.post(`/admin/author-requests/${selectedAuthorRequest._id}/review`,{action:'reject'},{headers:authHeaders});setSelectedAuthorRequest(null);loadDashboard();}} className="rounded-full bg-red-600 px-4 py-2 text-xs font-semibold text-white">Reject</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <section className={`${CARD_CLASS} mt-6`}>
         <h2 className="text-xl font-semibold">Author Analytics & Payment Details</h2>
