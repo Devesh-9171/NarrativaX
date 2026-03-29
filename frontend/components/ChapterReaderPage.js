@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/router';
 import Layout from './Layout';
@@ -426,7 +427,17 @@ export default function ChapterReaderPage({ book, chapter, chapters = [], previo
                 {similarBooks.map((item) => (
                   <Link key={item._id} href={`/book/${item.slug}${item.language === 'hi' ? '?lang=hi' : ''}`} className="overflow-hidden rounded-xl border border-slate-200 bg-white transition hover:border-brand-500 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-sky-400">
                     <div className="aspect-[3/4] bg-slate-100 dark:bg-slate-800">
-                      {item.coverImage ? <img src={item.coverImage} alt={item.title} className="h-full w-full object-cover" loading="lazy" /> : null}
+                      {item.coverImage ? (
+                        <Image
+                          src={item.coverImage}
+                          alt={item.title}
+                          width={480}
+                          height={640}
+                          className="h-full w-full object-cover"
+                          loading="lazy"
+                          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 240px"
+                        />
+                      ) : null}
                     </div>
                     <div className="px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-200">{item.title}</div>
                   </Link>

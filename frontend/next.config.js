@@ -21,7 +21,7 @@ const SITEMAP_HEADERS = [
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  compress: false,
+  compress: true,
   poweredByHeader: false,
   async rewrites() {
     return {

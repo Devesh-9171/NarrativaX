@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/router';
 import Layout from '../../components/Layout';
 import api from '../../utils/api';
@@ -689,7 +690,16 @@ export default function AdminPage() {
               </p>
             ) : null}
             <input className={INPUT_CLASS} type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => setBookForm((current) => ({ ...current, coverImageFile: event.target.files?.[0] || null }))} required />
-            {bookForm.uploadedCoverImage ? <img src={bookForm.uploadedCoverImage} alt="Uploaded book cover" className="h-36 w-28 rounded-xl object-cover" /> : null}
+            {bookForm.uploadedCoverImage ? (
+              <Image
+                src={bookForm.uploadedCoverImage}
+                alt="Uploaded book cover"
+                width={112}
+                height={144}
+                className="h-36 w-28 rounded-xl object-cover"
+                sizes="112px"
+              />
+            ) : null}
             <button type="submit" disabled={submittingBook || (requiresExistingGroup && translationGroupOptions.length === 0)} className="w-full rounded-xl bg-brand-600 px-4 py-2.5 text-white transition hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-60">
               {submittingBook ? 'Saving book...' : 'Save Book'}
             </button>
@@ -740,7 +750,16 @@ export default function AdminPage() {
             <input className={INPUT_CLASS} type="text" value={blogForm.title} onChange={(event) => setBlogForm((current) => ({ ...current, title: event.target.value }))} placeholder="Blog title" required />
             <textarea className={`${TEXTAREA_CLASS} min-h-[110px]`} value={blogForm.description} onChange={(event) => setBlogForm((current) => ({ ...current, description: event.target.value }))} placeholder="SEO description" required />
             <input className={INPUT_CLASS} type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => setBlogForm((current) => ({ ...current, coverImageFile: event.target.files?.[0] || null }))} required />
-            {blogForm.uploadedCoverImage ? <img src={blogForm.uploadedCoverImage} alt="Uploaded blog cover" className="h-40 w-full rounded-xl object-cover" /> : null}
+            {blogForm.uploadedCoverImage ? (
+              <Image
+                src={blogForm.uploadedCoverImage}
+                alt="Uploaded blog cover"
+                width={960}
+                height={640}
+                className="h-40 w-full rounded-xl object-cover"
+                sizes="(max-width: 1024px) 100vw, 50vw"
+              />
+            ) : null}
             <RichTextEditor label="Content" value={blogForm.contentHtml} onChange={(value) => setBlogForm((current) => ({ ...current, contentHtml: value }))} placeholder="Write your article, then use 🔗 to add internal links like /blog/my-post or external URLs." minHeight={320} />
             <button type="submit" disabled={submittingBlog} className="w-full rounded-xl bg-brand-600 px-4 py-2.5 text-white transition hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-60">
               {submittingBlog ? 'Publishing...' : 'Publish Blog'}
